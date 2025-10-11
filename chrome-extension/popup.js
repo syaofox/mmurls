@@ -154,8 +154,14 @@ class URLManager {
       }
       
       // 向content script发送消息开始提取
-      const response = await chrome.tabs.sendMessage(tab.id, { type: 'START_EXTRACTION' });
-      console.log('Content script响应:', response);
+      try {
+        const response = await chrome.tabs.sendMessage(tab.id, { type: 'START_EXTRACTION' });
+        console.log('Content script响应:', response);
+      } catch (error) {
+        console.error('❌ 无法连接到content script:', error.message);
+        this.handleError('无法连接到页面脚本，请刷新页面后重试');
+        return;
+      }
       
       // 保存提取状态到存储，支持后台工作
       await chrome.storage.local.set({ 
@@ -459,24 +465,32 @@ class URLManager {
       
       if (tab && (tab.url.includes('v2ph.com') || tab.url.includes('junmeitu.com'))) {
         // 向content script查询当前状态
-        const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_EXTRACTION_STATUS' });
-        
-        if (response) {
-          this.isExtracting = response.isExtracting;
-          this.extractionProgress = response.progress;
+        try {
+          const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_EXTRACTION_STATUS' });
           
-          if (response.urls && response.urls.length > 0) {
-            this.urls = response.urls;
+          if (response) {
+            this.isExtracting = response.isExtracting;
+            this.extractionProgress = response.progress;
+            
+            if (response.urls && response.urls.length > 0) {
+              this.urls = response.urls;
+            }
+            
+            console.log('同步状态:', {
+              isExtracting: this.isExtracting,
+              progress: this.extractionProgress,
+              urlsCount: this.urls.length
+            });
+            
+            // 更新界面显示
+            this.updateUI();
+          } else {
+            console.warn('⚠️ Content script未响应，可能正在加载中');
           }
-          
-          console.log('同步状态:', {
-            isExtracting: this.isExtracting,
-            progress: this.extractionProgress,
-            urlsCount: this.urls.length
-          });
-          
-          // 更新界面显示
-          this.updateUI();
+        } catch (error) {
+          console.warn('⚠️ 无法连接到content script:', error.message);
+          // 如果content script未加载，尝试从存储中获取数据
+          await this.loadStoredData();
         }
       }
     } catch (error) {

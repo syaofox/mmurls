@@ -18,7 +18,22 @@
   "content_scripts": [
     {
       "matches": ["https://www.v2ph.com/*", "https://www.junmeitu.com/*"],
-      "js": ["utils/image-processor.js", "content.js"],
+      "js": [
+        "utils/image-processor.js",
+        "utils/yaml-generator.js",
+        "utils/image-converter.js",
+        "ui/toast.js",
+        "ui/button-manager.js",
+        "parsers/base-parser.js",
+        "parsers/v2ph-parser.js",
+        "parsers/junmeitu-parser.js",
+        "extractors/v2ph-actor-extractor.js",
+        "extractors/junmeitu-actor-extractor.js",
+        "core/actor-info-extractor.js",
+        "core/album-url-extractor.js",
+        "core/message-handler.js",
+        "content.js"
+      ],
       "css": ["content.css"]
     }
   ],
