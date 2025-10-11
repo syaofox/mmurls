@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>美女相册信息提取器</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>美女相册信息提取器</h1>
+      <div class="status" id="status">就绪</div>
+    </div>
+
+    <!-- 标签页导航 -->
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="urls">
+        <span class="tab-icon">📁</span>
+        相册URL
+      </button>
+      <button class="tab-btn" data-tab="info">
+        <span class="tab-icon">🎭</span>
+        演员信息
+      </button>
+    </div>
+
+    <!-- 标签页内容 -->
+    <div class="tab-content">
+      <!-- Tab 1: 相册URL获取 -->
+      <div id="urls-tab" class="tab-pane active">
+        <div class="controls">
+          <button id="extractBtn" class="primary-btn">开始获取</button>
+          <button id="clearBtn" class="secondary-btn">清空结果</button>
+        </div>
+
+        <div class="results-section">
+          <div class="results-header">
+            <h3>获取结果</h3>
+            <div class="count" id="urlCount">0 个URL</div>
+          </div>
+          
+          <div class="results-content">
+            <div class="url-list" id="urlList">
+              <div class="empty-state">暂无结果</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="copyAllBtn" class="secondary-btn" disabled>复制全部</button>
+            <button id="copyYamlBtn" class="secondary-btn" disabled>复制YAML</button>
+            <button id="downloadBtn" class="secondary-btn" disabled>下载列表</button>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="supported-sites">
+            <h4>支持的网站:</h4>
+            <ul>
+              <li>V2PH.com</li>
+              <li>俊美图.com</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: 演员信息提取 -->
+      <div id="info-tab" class="tab-pane">
+        <div class="button-group">
+          <button id="extractActorBtn" class="btn btn-primary">
+            📋 提取演员信息
+          </button>
+          
+          <button id="downloadActorBtn" class="btn btn-success" style="display: none;">
+            💾 下载Markdown文件
+          </button>
+        </div>
+        
+        <div class="loading" id="actorLoading">
+          <div class="spinner"></div>
+          <p>正在提取信息...</p>
+        </div>
+        
+        <div class="status" id="actorStatus"></div>
+        
+        <div class="preview" id="preview">
+          <h3>预览:</h3>
+          <div class="preview-content" id="previewContent"></div>
+        </div>
+
+        <div class="footer">
+          <div class="supported-sites">
+            <h4>支持的页面:</h4>
+            <ul>
+              <li>V2PH.com/actor/*</li>
+              <li>俊美图.com/model/*</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

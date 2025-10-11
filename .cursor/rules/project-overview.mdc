@@ -1,0 +1,59 @@
+---
+alwaysApply: true
+---
+
+# 美女相册信息提取器项目总览
+
+## 项目目的
+这是一个Chrome扩展项目，用于从V2PH和俊美图网站自动提取相册URL和演员信息。项目整合了两个核心功能：
+1. **相册URL获取器** - 自动翻页获取所有相册链接
+2. **演员信息提取器** - 提取演员详细信息和图片
+
+## 技术栈
+- **Chrome Extension Manifest V3** - 使用最新的扩展标准
+- **原生JavaScript** - 无外部依赖，纯JS实现
+- **Chrome APIs** - storage, downloads, clipboard, tabs
+- **跨域图片处理** - 智能处理不同网站的图片转换
+
+## 核心文件结构
+
+### 配置文件
+- [manifest.json](mdc:chrome-extension/manifest.json) - 扩展配置，定义权限和入口点
+- [README.md](mdc:README.md) - 项目文档和使用说明
+
+### 核心脚本
+- [background.js](mdc:chrome-extension/background.js) - 后台服务工作者，处理图片转换和消息转发
+- [content.js](mdc:chrome-extension/content.js) - 内容脚本，包含URL提取和演员信息提取逻辑
+- [popup.js](mdc:chrome-extension/popup.js) - 弹窗界面逻辑，管理用户交互
+
+### 界面文件
+- [popup.html](mdc:chrome-extension/popup.html) - 弹窗界面，采用标签页设计
+- [popup.css](mdc:chrome-extension/popup.css) - 弹窗样式
+- [content.css](mdc:chrome-extension/content.css) - 内容脚本样式
+
+### 工具模块
+- [utils/image-processor.js](mdc:chrome-extension/utils/image-processor.js) - 图片处理工具类
+
+## 支持的网站
+- **V2PH.com** - 相册列表和演员页面
+- **俊美图.com** - 模特相册和模特信息页面
+
+## 主要功能模块
+
+### 相册URL获取器
+- 自动翻页获取所有相册链接
+- 实时进度显示
+- 多种导出格式（文本、YAML）
+- 一键复制到剪贴板
+
+### 演员信息提取器
+- 提取演员详细信息（姓名、身高、三围等）
+- 图片转base64处理
+- 生成Markdown格式文件
+- 预览和下载功能
+
+## 开发特点
+- **模块化设计** - 每个功能独立封装
+- **错误处理** - 完善的异常处理机制
+- **状态管理** - 使用Chrome Storage API持久化数据
+- **用户友好** - 实时反馈和状态提示

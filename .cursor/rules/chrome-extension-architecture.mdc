@@ -1,0 +1,101 @@
+---
+alwaysApply: true
+---
+
+# Chrome扩展架构规范
+
+## Manifest V3 架构
+本项目使用Chrome扩展的Manifest V3标准，这是最新的扩展开发规范。
+
+### 核心组件
+- **Service Worker** ([background.js](mdc:chrome-extension/background.js)) - 替代了Manifest V2的background page
+- **Content Scripts** ([content.js](mdc:chrome-extension/content.js)) - 在网页中注入的脚本
+- **Action Popup** ([popup.js](mdc:chrome-extension/popup.js)) - 用户界面交互
+
+## 消息传递机制
+
+### 消息类型定义
+```javascript
+// 相册URL获取器消息
+'START_EXTRACTION' - 开始提取URL
+'EXTRACTION_STARTED' - 提取已开始
+'EXTRACTION_PROGRESS' - 提取进度更新
+'ALBUM_URLS_EXTRACTED' - URL提取完成
+'EXTRACTION_ERROR' - 提取错误
+
+// 演员信息提取器消息
+'extractActorInfo' - 提取演员信息
+'actorInfoExtracted' - 演员信息提取完成
+'convertImageToBase64' - 图片转换请求
+```
+
+### 消息流向
+1. **Popup → Content Script**: 用户操作触发提取请求
+2. **Content Script → Background**: 图片转换等需要权限的操作
+3. **Background → Popup**: 处理结果返回
+4. **Content Script → Storage**: 数据持久化
+
+## 权限管理
+
+### 必需权限 (在[manifest.json](mdc:chrome-extension/manifest.json)中定义)
+- `activeTab` - 访问当前活动标签页
+- `storage` - 本地数据存储
+- `downloads` - 文件下载功能
+- `clipboardWrite` - 写入剪贴板
+
+### 主机权限
+```json
+"host_permissions": [
+  "https://www.v2ph.com/*",
+  "https://cdn.v2ph.com/*", 
+  "https://www.junmeitu.com/*",
+  "https://i.wujituku.com/*"
+]
+```
+
+## 数据存储策略
+
+### Chrome Storage API使用
+- `chrome.storage.local` - 存储提取的URL列表和进度信息
+- 存储键名规范：
+  - `albumUrls` - 相册URL列表
+  - `extractionProgress` - 提取进度
+  - `isExtracting` - 提取状态标志
+  - `lastExtraction` - 最后提取时间
+
+### 数据同步机制
+- 实时更新存储，支持后台工作
+- 状态检查间隔：每1-2秒检查一次
+- 超时检测：5分钟超时机制
+
+## 文件职责分工
+
+### Background Script ([background.js](mdc:chrome-extension/background.js))
+- 图片转换处理（跨域图片转base64）
+- 消息转发和路由
+- 扩展安装监听
+- 处理需要特殊权限的操作
+
+### Content Script ([content.js](mdc:chrome-extension/content.js))
+- 页面DOM解析和URL提取
+- 演员信息提取
+- 网站适配和解析器管理
+- 实时UI状态更新
+
+### Popup Script ([popup.js](mdc:chrome-extension/popup.js))
+- 用户界面交互
+- 数据展示和导出
+- 状态管理和错误处理
+- 文件下载和剪贴板操作
+
+## 错误处理策略
+- 所有异步操作都包含try-catch
+- 用户友好的错误提示
+- 自动重试机制
+- 状态恢复功能
+
+## 性能优化
+- 使用Set数据结构避免重复URL
+- 分页加载避免内存溢出
+- 延迟加载和按需处理
+- 合理的等待时间设置

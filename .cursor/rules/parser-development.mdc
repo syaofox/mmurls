@@ -1,0 +1,331 @@
+---
+description: 网站解析器开发和维护指南
+---
+
+# 网站解析器开发规范
+
+## 解析器架构
+
+### 基础解析器类结构
+参考[content.js](mdc:chrome-extension/content.js)中的解析器实现：
+
+```javascript
+class SiteParser {
+  constructor() {
+    this.baseURL = 'https://example.com';
+    this.extractedURLs = new Set();
+  }
+
+  async extractAllPages(extractor = null) {
+    // 实现翻页提取逻辑
+  }
+
+  extractCurrentPageURLs() {
+    // 提取当前页面的URL
+  }
+
+  hasNextPage() {
+    // 检查是否有下一页
+  }
+
+  async navigateToPage(pageNumber) {
+    // 导航到指定页面
+  }
+}
+```
+
+## 添加新网站支持
+
+### 1. 创建解析器类
+```javascript
+class NewSiteParser extends SiteParser {
+  constructor() {
+    super();
+    this.baseURL = 'https://newsite.com';
+  }
+
+  extractCurrentPageURLs() {
+    const urls = [];
+    // 使用精确的CSS选择器
+    const links = document.querySelectorAll('your-specific-selector');
+    
+    links.forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && this.isValidAlbumURL(href)) {
+        const fullURL = href.startsWith('http') ? href : this.baseURL + href;
+        urls.push(fullURL);
+      }
+    });
+    
+    return urls;
+  }
+}
+```
+
+### 2. 注册解析器
+在`AlbumURLExtractor`类中添加：
+```javascript
+constructor() {
+  this.parsers = {
+    'v2ph.com': new V2PHParser(),
+    'junmeitu.com': new JunMeituParser(),
+    'newsite.com': new NewSiteParser() // 添加新解析器
+  };
+}
+```
+
+### 3. 更新网站检测
+```javascript
+detectSite() {
+  const hostname = window.location.hostname;
+  
+  if (hostname.includes('newsite.com')) {
+    this.currentParser = this.parsers['newsite.com'];
+    console.log('检测到新网站，使用新解析器');
+  }
+  // 其他网站检测...
+}
+```
+
+### 4. 更新manifest.json
+添加新的主机权限：
+```json
+"host_permissions": [
+  "https://newsite.com/*",
+  "https://cdn.newsite.com/*"
+]
+```
+
+## CSS选择器编写规范
+
+### 选择器优先级
+1. **ID选择器** - 最精确，优先使用
+2. **类选择器** - 次优先，注意类名变化
+3. **属性选择器** - 用于特定属性匹配
+4. **后代选择器** - 避免过于复杂
+
+### 选择器示例
+```javascript
+// ✅ 好的选择器 - 具体且稳定
+'.albums-list .card .card-cover .media-cover'
+'div.main > div.list > div.pic-list > ul > li > a'
+
+// ❌ 避免的选择器 - 过于通用
+'a'
+'.link'
+'div > a'
+```
+
+### 备用选择器策略
+```javascript
+extractCurrentPageURLs() {
+  const selectors = [
+    'primary-selector',      // 主要选择器
+    'backup-selector-1',     // 备用选择器1
+    'backup-selector-2'      // 备用选择器2
+  ];
+  
+  for (let selector of selectors) {
+    const elements = document.querySelectorAll(selector);
+    if (elements.length > 0) {
+      console.log(`✅ 使用选择器: ${selector}`);
+      return this.processElements(elements);
+    }
+  }
+  
+  console.warn('⚠️ 所有选择器都未找到元素');
+  return [];
+}
+```
+
+## 翻页逻辑实现
+
+### 分页检测
+```javascript
+hasNextPage() {
+  // 方法1: 查找"下一页"链接
+  const nextLink = document.querySelector('a[href*="next"], a:contains("下一页")');
+  if (nextLink && !nextLink.classList.contains('disabled')) {
+    return true;
+  }
+  
+  // 方法2: 检查页码
+  const currentPage = this.getCurrentPageNumber();
+  const lastPage = this.getLastPageNumber();
+  return currentPage < lastPage;
+}
+```
+
+### 页面导航
+```javascript
+async navigateToPage(pageNumber) {
+  const newURL = this.buildPageURL(pageNumber);
+  
+  try {
+    const response = await fetch(newURL, {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+        'Cache-Control': 'no-cache'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const html = await response.text();
+    this.updatePageContent(html);
+    window.history.pushState({}, '', newURL);
+    
+  } catch (error) {
+    console.error('导航失败:', error);
+    throw error;
+  }
+}
+```
+
+## 演员信息提取规范
+
+### 信息提取结构
+```javascript
+async extractActorInfo() {
+  const info = {
+    name: '',
+    image: '',
+    info: {},
+    description: '',
+    url: window.location.href
+  };
+  
+  // 提取姓名
+  info.name = this.extractName();
+  
+  // 提取图片
+  info.image = await this.extractImage();
+  
+  // 提取详细信息
+  info.info = this.extractDetailedInfo();
+  
+  // 提取描述
+  info.description = this.extractDescription();
+  
+  return info;
+}
+```
+
+### 图片处理
+```javascript
+async extractImage() {
+  const imgSelectors = [
+    '.actor-cover img',
+    '.profile-image img',
+    'img[alt*="演员"]'
+  ];
+  
+  for (let selector of imgSelectors) {
+    const img = document.querySelector(selector);
+    if (img && img.src) {
+      try {
+        // 使用ImageProcessor转换图片
+        const base64 = await window.imageProcessor.convertToBase64(img);
+        return base64;
+      } catch (error) {
+        console.warn('图片转换失败:', error);
+        return img.src; // 返回原始URL
+      }
+    }
+  }
+  
+  return '';
+}
+```
+
+## 错误处理和调试
+
+### 错误处理策略
+```javascript
+async extractAllPages(extractor = null) {
+  try {
+    // 提取逻辑
+  } catch (error) {
+    console.error('❌ 提取失败:', error);
+    
+    // 发送错误消息
+    chrome.runtime.sendMessage({
+      type: 'EXTRACTION_ERROR',
+      error: error.message,
+      site: window.location.hostname
+    });
+    
+    throw error;
+  }
+}
+```
+
+### 调试信息
+```javascript
+extractCurrentPageURLs() {
+  const urls = [];
+  const elements = document.querySelectorAll('selector');
+  
+  console.log(`📊 找到 ${elements.length} 个元素`);
+  
+  elements.forEach((element, index) => {
+    const href = element.getAttribute('href');
+    console.log(`🔗 元素${index + 1}: ${href}`);
+    
+    if (this.isValidURL(href)) {
+      urls.push(href);
+    }
+  });
+  
+  console.log(`✅ 有效URL数量: ${urls.length}`);
+  return urls;
+}
+```
+
+## 性能优化
+
+### 批量处理
+```javascript
+// 批量更新DOM而不是逐个操作
+const fragment = document.createDocumentFragment();
+urls.forEach(url => {
+  const element = this.createURLElement(url);
+  fragment.appendChild(element);
+});
+container.appendChild(fragment);
+```
+
+### 内存管理
+```javascript
+// 及时清理大对象
+this.extractedURLs.clear();
+
+// 避免内存泄漏
+clearTimeout(this.timeoutId);
+removeEventListener('scroll', this.scrollHandler);
+```
+
+## 测试和验证
+
+### 选择器测试
+```javascript
+// 在控制台中测试选择器
+document.querySelectorAll('your-selector').length
+```
+
+### 数据验证
+```javascript
+validateExtractedData(data) {
+  if (!data.name || data.name.trim() === '') {
+    throw new Error('演员姓名不能为空');
+  }
+  
+  if (!data.info || Object.keys(data.info).length === 0) {
+    console.warn('⚠️ 未提取到详细信息');
+  }
+  
+  return true;
+}
+```

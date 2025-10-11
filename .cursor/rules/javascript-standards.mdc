@@ -1,0 +1,239 @@
+---
+globs: *.js
+---
+
+# JavaScript编码规范
+
+## 代码风格
+
+### 命名规范
+- **类名**: PascalCase (如: `AlbumURLExtractor`, `V2PHParser`)
+- **方法名**: camelCase (如: `extractAlbumURLs`, `updateProgress`)
+- **变量名**: camelCase (如: `currentParser`, `extractionProgress`)
+- **常量**: UPPER_SNAKE_CASE (如: `BASE_URL`, `MAX_RETRIES`)
+- **私有方法**: 前缀下划线 (如: `_handleError`, `_updateUI`)
+
+### 文件组织
+```javascript
+// 1. 导入/依赖声明
+// 2. 工具函数
+// 3. 主要类定义
+// 4. 事件监听器
+// 5. 初始化代码
+```
+
+## 类设计模式
+
+### 标准类结构
+参考[content.js](mdc:chrome-extension/content.js)中的`AlbumURLExtractor`类：
+
+```javascript
+class ClassName {
+  constructor() {
+    // 初始化属性
+    this.property = defaultValue;
+    this.init();
+  }
+
+  init() {
+    // 初始化方法
+  }
+
+  // 公共方法
+  publicMethod() {
+    // 实现
+  }
+
+  // 私有方法（前缀下划线）
+  _privateMethod() {
+    // 实现
+  }
+}
+```
+
+### 管理器模式
+参考[popup.js](mdc:chrome-extension/popup.js)中的管理器类：
+- `URLManager` - 管理URL提取和状态
+- `ActorManager` - 管理演员信息提取
+- `PopupController` - 控制弹窗交互
+
+## 异步处理规范
+
+### Promise使用
+```javascript
+// 优先使用async/await
+async function extractData() {
+  try {
+    const result = await someAsyncOperation();
+    return result;
+  } catch (error) {
+    console.error('操作失败:', error);
+    throw error;
+  }
+}
+```
+
+### 错误处理
+```javascript
+// 标准错误处理模式
+try {
+  await riskyOperation();
+} catch (error) {
+  console.error('❌ 操作失败:', error);
+  this.handleError(error.message);
+  // 或者重新抛出
+  throw error;
+}
+```
+
+### Chrome API调用
+```javascript
+// 使用Promise包装Chrome API
+const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+const result = await chrome.storage.local.get(['key']);
+```
+
+## 消息传递规范
+
+### 消息格式
+```javascript
+// 发送消息
+chrome.runtime.sendMessage({
+  type: 'MESSAGE_TYPE',
+  data: payload,
+  site: window.location.hostname
+});
+
+// 接收消息
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'MESSAGE_TYPE') {
+    // 处理消息
+    sendResponse({ success: true });
+  }
+});
+```
+
+### 异步响应
+```javascript
+// 对于异步响应，返回true保持通道开放
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'asyncAction') {
+    handleAsyncAction().then(result => {
+      sendResponse(result);
+    });
+    return true; // 保持消息通道开放
+  }
+});
+```
+
+## 状态管理
+
+### 状态更新模式
+```javascript
+// 更新状态并同步到存储
+updateProgress(progress) {
+  this.progress = progress;
+  this.updateUI();
+  
+  // 同步到存储
+  chrome.storage.local.set({
+    progress: this.progress,
+    lastUpdate: new Date().toISOString()
+  });
+}
+```
+
+### 数据持久化
+```javascript
+// 保存数据
+async saveData() {
+  try {
+    await chrome.storage.local.set({ 
+      key: this.data 
+    });
+  } catch (error) {
+    console.error('保存失败:', error);
+  }
+}
+
+// 加载数据
+async loadData() {
+  try {
+    const result = await chrome.storage.local.get(['key']);
+    if (result.key) {
+      this.data = result.key;
+    }
+  } catch (error) {
+    console.error('加载失败:', error);
+  }
+}
+```
+
+## 调试和日志
+
+### 日志规范
+```javascript
+// 使用表情符号增强日志可读性
+console.log('✅ 操作成功');
+console.warn('⚠️ 警告信息');
+console.error('❌ 错误信息');
+console.log('🎭 演员信息提取');
+console.log('📁 文件下载');
+```
+
+### 调试信息
+```javascript
+// 详细的状态信息
+console.log('状态更新:', {
+  isExtracting: this.isExtracting,
+  progress: this.progress,
+  urlsCount: this.urls.length
+});
+```
+
+## 性能优化
+
+### 数据结构选择
+```javascript
+// 使用Set避免重复
+this.extractedURLs = new Set();
+
+// 使用Map存储键值对
+this.parsers = new Map();
+```
+
+### 内存管理
+```javascript
+// 及时清理定时器
+clearInterval(this.dataCheckInterval);
+
+// 清理DOM引用
+if (document.body.contains(element)) {
+  document.body.removeChild(element);
+}
+```
+
+## 注释规范
+
+### 函数注释
+```javascript
+/**
+ * 提取当前页面的相册URL
+ * @param {Object} extractor - 提取器实例
+ * @returns {Array<string>} URL数组
+ */
+extractCurrentPageURLs(extractor = null) {
+  // 实现
+}
+```
+
+### 复杂逻辑注释
+```javascript
+// 检查是否有下一页
+// 1. 查找分页元素
+// 2. 检查下一页链接状态
+// 3. 验证链接有效性
+hasNextPage() {
+  // 实现
+}
+```

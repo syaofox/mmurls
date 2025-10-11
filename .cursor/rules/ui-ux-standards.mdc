@@ -1,0 +1,379 @@
+---
+globs: *.html,*.css
+---
+
+# UI/UX设计规范
+
+## 界面设计原则
+
+### 弹窗设计
+参考[popup.html](mdc:chrome-extension/popup.html)和[popup.css](mdc:chrome-extension/popup.css)：
+
+- **尺寸**: 400px × 600px (标准Chrome扩展弹窗尺寸)
+- **布局**: 标签页设计，清晰的功能分区
+- **响应式**: 适配不同屏幕尺寸
+- **无障碍**: 支持键盘导航和屏幕阅读器
+
+### 标签页设计
+```html
+<!-- 标签页导航 -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="urls">相册URL</button>
+  <button class="tab-btn" data-tab="info">演员信息</button>
+</div>
+
+<!-- 标签页内容 -->
+<div class="tab-panes">
+  <div class="tab-pane active" id="urls-tab">...</div>
+  <div class="tab-pane" id="info-tab">...</div>
+</div>
+```
+
+## 状态反馈系统
+
+### 状态指示器
+```css
+/* 状态样式 */
+.status {
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.status.success { background: #d4edda; color: #155724; }
+.status.error { background: #f8d7da; color: #721c24; }
+.status.processing { background: #d1ecf1; color: #0c5460; }
+.status.info { background: #d4edda; color: #155724; }
+```
+
+### 加载状态
+```html
+<!-- 加载指示器 -->
+<div class="loading" id="loading" style="display: none;">
+  <div class="spinner"></div>
+  <span>处理中...</span>
+</div>
+```
+
+### Toast提示系统
+```javascript
+// 标准Toast实现
+showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  
+  // 样式和动画
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${this.getToastColor(type)};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 4px;
+    z-index: 10000;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+  `;
+  
+  document.body.appendChild(toast);
+  
+  // 显示动画
+  setTimeout(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(0)';
+  }, 100);
+  
+  // 自动隐藏
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      if (document.body.contains(toast)) {
+        document.body.removeChild(toast);
+      }
+    }, 300);
+  }, 3000);
+}
+```
+
+## 按钮设计规范
+
+### 按钮状态
+```css
+/* 基础按钮样式 */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+/* 按钮状态 */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn.secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn.success {
+  background: #28a745;
+  color: white;
+}
+
+.btn.danger {
+  background: #dc3545;
+  color: white;
+}
+```
+
+### 按钮交互反馈
+```javascript
+// 按钮状态更新
+updateExtractButton() {
+  const extractBtn = document.getElementById('extractBtn');
+  
+  if (this.isExtracting) {
+    extractBtn.disabled = true;
+    extractBtn.textContent = '正在获取...';
+    extractBtn.classList.add('processing');
+  } else {
+    extractBtn.disabled = false;
+    extractBtn.textContent = '开始获取';
+    extractBtn.classList.remove('processing');
+  }
+}
+```
+
+## 数据展示设计
+
+### 列表项设计
+```html
+<!-- URL列表项 -->
+<div class="url-item">
+  <div class="url-info">
+    <span class="url-index">1</span>
+    <span class="url-text" title="完整URL">截断的URL...</span>
+  </div>
+  <div class="url-actions">
+    <button class="copy-single-btn" data-url="url">复制</button>
+  </div>
+</div>
+```
+
+### 进度显示
+```html
+<!-- 进度信息 -->
+<div class="progress-info">
+  <div class="progress-text">正在获取第3页，已找到45个URL</div>
+  <div class="progress-bar">
+    <div class="progress-fill" style="width: 60%"></div>
+  </div>
+</div>
+```
+
+### 空状态设计
+```html
+<!-- 空状态 -->
+<div class="empty-state">
+  <div class="empty-icon">📁</div>
+  <div class="empty-text">暂无结果</div>
+  <div class="empty-hint">点击"开始获取"按钮开始提取</div>
+</div>
+```
+
+## 表单和输入设计
+
+### 表单布局
+```html
+<!-- 表单容器 -->
+<div class="form-group">
+  <label for="input-id">标签文本</label>
+  <input type="text" id="input-id" class="form-input" placeholder="提示文本">
+  <div class="form-hint">帮助文本</div>
+</div>
+```
+
+### 输入验证反馈
+```css
+.form-input.valid {
+  border-color: #28a745;
+}
+
+.form-input.invalid {
+  border-color: #dc3545;
+}
+
+.form-error {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+}
+```
+
+## 响应式设计
+
+### 媒体查询
+```css
+/* 小屏幕适配 */
+@media (max-width: 480px) {
+  .popup {
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    max-height: none;
+  }
+  
+  .tab-btn {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+  
+  .url-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+```
+
+### 弹性布局
+```css
+/* Flexbox布局 */
+.url-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.url-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+```
+
+## 动画和过渡
+
+### CSS过渡
+```css
+/* 平滑过渡 */
+.tab-pane {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.tab-pane.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 悬停效果 */
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+```
+
+### 加载动画
+```css
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+```
+
+## 无障碍设计
+
+### 键盘导航
+```html
+<!-- 支持键盘导航 -->
+<button class="tab-btn" data-tab="urls" tabindex="0" role="tab" aria-selected="true">
+  相册URL
+</button>
+
+<button class="btn" aria-label="开始获取相册URL">
+  开始获取
+</button>
+```
+
+### 屏幕阅读器支持
+```html
+<!-- ARIA标签 -->
+<div role="status" aria-live="polite" id="status">
+  就绪
+</div>
+
+<div role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100">
+  进度: 60%
+</div>
+```
+
+## 主题和配色
+
+### 颜色系统
+```css
+:root {
+  /* 主色调 */
+  --primary-color: #007bff;
+  --secondary-color: #6c757d;
+  --success-color: #28a745;
+  --danger-color: #dc3545;
+  --warning-color: #ffc107;
+  --info-color: #17a2b8;
+  
+  /* 中性色 */
+  --light-gray: #f8f9fa;
+  --gray: #6c757d;
+  --dark-gray: #343a40;
+  
+  /* 文本颜色 */
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --text-muted: #6c757d;
+}
+```
+
+### 深色主题支持
+```css
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #1a1a1a;
+    --text-primary: #ffffff;
+    --border-color: #333333;
+  }
+  
+  .popup {
+    background: var(--bg-color);
+    color: var(--text-primary);
+  }
+}
+```

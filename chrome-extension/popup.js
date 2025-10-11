@@ -1,0 +1,782 @@
+// 合并的Chrome插件 - 弹窗脚本
+// 整合了相册URL获取器和演员信息提取器功能
+
+class PopupController {
+  constructor() {
+    this.currentTab = 'urls';
+    this.urlManager = new URLManager();
+    this.actorManager = new ActorManager();
+    this.init();
+  }
+
+  init() {
+    this.setupTabNavigation();
+    this.urlManager.init();
+    this.actorManager.init();
+    this.checkCurrentPage();
+  }
+
+  setupTabNavigation() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const targetTab = button.getAttribute('data-tab');
+        this.switchTab(targetTab);
+      });
+    });
+  }
+
+  switchTab(tabName) {
+    // 更新按钮状态
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+    // 更新面板显示
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+      pane.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+
+    this.currentTab = tabName;
+  }
+
+  async checkCurrentPage() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // 根据当前页面类型自动切换到对应标签页
+      if (tab.url.includes('/actor/') || tab.url.includes('/model/')) {
+        this.switchTab('info');
+      } else if (tab.url.includes('v2ph.com') || tab.url.includes('junmeitu.com')) {
+        this.switchTab('urls');
+      }
+    } catch (error) {
+      console.error('检查当前页面失败:', error);
+    }
+  }
+}
+
+// ==================== URL管理器 ====================
+class URLManager {
+  constructor() {
+    this.urls = [];
+    this.isExtracting = false;
+    this.extractionProgress = {
+      currentPage: 0,
+      totalPages: 0,
+      urlsFound: 0
+    };
+  }
+
+  init() {
+    this.setupEventListeners();
+    this.loadStoredData();
+    this.checkCurrentStatus();
+    this.updateUI();
+    this.startDataCheckInterval();
+  }
+
+  setupEventListeners() {
+    // 开始获取按钮
+    document.getElementById('extractBtn').addEventListener('click', () => {
+      this.startExtraction();
+    });
+
+    // 清空结果按钮
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      this.clearResults();
+    });
+
+    // 复制全部按钮
+    document.getElementById('copyAllBtn').addEventListener('click', () => {
+      this.copyAllURLs();
+    });
+
+    // 复制YAML按钮
+    document.getElementById('copyYamlBtn').addEventListener('click', () => {
+      this.copyYAMLFormat();
+    });
+
+    // 下载列表按钮
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      this.downloadURLs();
+    });
+
+    // 监听来自content script的消息
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.type === 'ALBUM_URLS_EXTRACTED') {
+        this.handleExtractionComplete(request.urls, request.site);
+      } else if (request.type === 'EXTRACTION_STARTED') {
+        this.handleExtractionStarted();
+      } else if (request.type === 'EXTRACTION_PROGRESS') {
+        this.handleExtractionProgress(request.progress);
+      } else if (request.type === 'EXTRACTION_ERROR') {
+        this.handleExtractionError(request.error);
+      }
+    });
+  }
+
+  async startExtraction() {
+    if (this.isExtracting) {
+      this.showToast('正在获取中，请稍候...', 'info');
+      return;
+    }
+
+    // 先检查当前状态
+    await this.checkCurrentStatus();
+    
+    if (this.isExtracting) {
+      this.showToast('检测到正在进行的提取任务', 'info');
+      return;
+    }
+
+    const extractBtn = document.getElementById('extractBtn');
+    const status = document.getElementById('status');
+    
+    this.isExtracting = true;
+    extractBtn.disabled = true;
+    extractBtn.textContent = '正在获取...';
+    status.textContent = '正在获取相册URL...';
+    status.className = 'status processing';
+
+    try {
+      // 获取当前活动标签页
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // 检查是否在支持的网站上
+      if (!tab.url.includes('v2ph.com') && !tab.url.includes('junmeitu.com')) {
+        this.handleError('请在支持的网站上使用此功能（V2PH.com 或 俊美图.com）');
+        return;
+      }
+      
+      // 向content script发送消息开始提取
+      const response = await chrome.tabs.sendMessage(tab.id, { type: 'START_EXTRACTION' });
+      console.log('Content script响应:', response);
+      
+      // 保存提取状态到存储，支持后台工作
+      await chrome.storage.local.set({ 
+        isExtracting: true,
+        extractionStartTime: new Date().toISOString()
+      });
+      
+      // 设置超时检测
+      setTimeout(() => {
+        if (this.isExtracting) {
+          this.handleError('获取超时，请检查网络连接');
+        }
+      }, 300000); // 5分钟超时
+      
+    } catch (error) {
+      console.error('启动提取失败:', error);
+      this.handleError('启动提取失败: ' + error.message);
+    }
+  }
+
+  handleExtractionStarted() {
+    console.log('提取已开始');
+  }
+
+  handleExtractionProgress(progress) {
+    this.extractionProgress = progress;
+    this.updateProgressDisplay();
+    this.updateExtractButton();
+  }
+
+  handleExtractionComplete(urls, site) {
+    this.urls = urls;
+    this.isExtracting = false;
+    this.saveData();
+    this.updateUI();
+    
+    const extractBtn = document.getElementById('extractBtn');
+    const status = document.getElementById('status');
+    
+    extractBtn.disabled = false;
+    extractBtn.textContent = '开始获取';
+    status.textContent = `获取完成 - ${site}`;
+    status.className = 'status success';
+    
+    // 清除提取状态
+    chrome.storage.local.remove(['isExtracting', 'extractionStartTime']);
+  }
+
+  handleExtractionError(error) {
+    this.isExtracting = false;
+    this.handleError(error);
+    
+    // 清除提取状态
+    chrome.storage.local.remove(['isExtracting', 'extractionStartTime']);
+  }
+
+  handleError(message) {
+    this.isExtracting = false;
+    const extractBtn = document.getElementById('extractBtn');
+    const status = document.getElementById('status');
+    
+    extractBtn.disabled = false;
+    extractBtn.textContent = '开始获取';
+    status.textContent = message;
+    status.className = 'status error';
+    
+    // 清除提取状态
+    chrome.storage.local.remove(['isExtracting', 'extractionStartTime']);
+  }
+
+  clearResults() {
+    this.urls = [];
+    this.saveData();
+    this.updateUI();
+    
+    const status = document.getElementById('status');
+    status.textContent = '已清空结果';
+    status.className = 'status';
+  }
+
+  updateUI() {
+    this.updateURLList();
+    this.updateCount();
+    this.updateButtons();
+    this.updateProgressDisplay();
+    this.updateExtractButton();
+  }
+
+  updateExtractButton() {
+    const extractBtn = document.getElementById('extractBtn');
+    const status = document.getElementById('status');
+    
+    if (this.isExtracting) {
+      extractBtn.disabled = true;
+      extractBtn.textContent = '正在获取...';
+      status.textContent = '正在获取相册URL...';
+      status.className = 'status processing';
+    } else {
+      extractBtn.disabled = false;
+      extractBtn.textContent = '开始获取';
+      if (this.urls.length > 0) {
+        status.textContent = `已获取 ${this.urls.length} 个URL`;
+        status.className = 'status success';
+      } else {
+        status.textContent = '就绪';
+        status.className = 'status';
+      }
+    }
+  }
+
+  updateProgressDisplay() {
+    const status = document.getElementById('status');
+    if (this.isExtracting && this.extractionProgress.currentPage > 0) {
+      status.textContent = `正在获取第${this.extractionProgress.currentPage}页，已找到${this.extractionProgress.urlsFound}个URL`;
+      status.className = 'status processing';
+    } else if (this.isExtracting) {
+      status.textContent = '正在获取相册URL...';
+      status.className = 'status processing';
+    }
+  }
+
+  updateURLList() {
+    const urlList = document.getElementById('urlList');
+    
+    if (this.urls.length === 0) {
+      urlList.innerHTML = '<div class="empty-state">暂无结果</div>';
+      return;
+    }
+
+    urlList.innerHTML = '';
+    this.urls.forEach((url, index) => {
+      const urlItem = document.createElement('div');
+      urlItem.className = 'url-item';
+      
+      urlItem.innerHTML = `
+        <div class="url-info">
+          <span class="url-index">${index + 1}</span>
+          <span class="url-text" title="${url}">${this.truncateURL(url)}</span>
+        </div>
+        <div class="url-actions">
+          <button class="copy-single-btn" data-url="${url}">复制</button>
+        </div>
+      `;
+      
+      // 添加单个复制按钮事件
+      const copyBtn = urlItem.querySelector('.copy-single-btn');
+      copyBtn.addEventListener('click', () => {
+        this.copySingleURL(url);
+      });
+      
+      urlList.appendChild(urlItem);
+    });
+  }
+
+  updateCount() {
+    const urlCount = document.getElementById('urlCount');
+    urlCount.textContent = `${this.urls.length} 个URL`;
+  }
+
+  updateButtons() {
+    const copyAllBtn = document.getElementById('copyAllBtn');
+    const copyYamlBtn = document.getElementById('copyYamlBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    
+    const hasUrls = this.urls.length > 0;
+    copyAllBtn.disabled = !hasUrls;
+    copyYamlBtn.disabled = !hasUrls;
+    downloadBtn.disabled = !hasUrls;
+  }
+
+  truncateURL(url, maxLength = 60) {
+    if (url.length <= maxLength) return url;
+    return url.substring(0, maxLength) + '...';
+  }
+
+  async copySingleURL(url) {
+    try {
+      await navigator.clipboard.writeText(url);
+      this.showToast('已复制到剪贴板');
+    } catch (error) {
+      console.error('复制失败:', error);
+      this.showToast('复制失败', 'error');
+    }
+  }
+
+  async copyAllURLs() {
+    if (this.urls.length === 0) return;
+    
+    try {
+      const urlText = this.urls.join('\n');
+      await navigator.clipboard.writeText(urlText);
+      this.showToast(`已复制 ${this.urls.length} 个URL到剪贴板`);
+    } catch (error) {
+      console.error('复制失败:', error);
+      this.showToast('复制失败', 'error');
+    }
+  }
+
+  async copyYAMLFormat() {
+    if (this.urls.length === 0) return;
+    
+    try {
+      const yamlContent = this.generateYAMLFormat();
+      await navigator.clipboard.writeText(yamlContent);
+      this.showToast(`已复制 ${this.urls.length} 个URL的YAML格式到剪贴板`);
+    } catch (error) {
+      console.error('复制YAML失败:', error);
+      this.showToast('复制YAML失败', 'error');
+    }
+  }
+
+  generateYAMLFormat() {
+    const yamlContent = [
+      'global_settings:',
+      '  download_dir: \'\'',
+      '  skip_existing: false',
+      '  delay_min: 2.0  # 测试配置：最小延迟2秒',
+      '  delay_max: 4.0  # 测试配置：最大延迟4秒',
+      '',
+      'albums:'
+    ];
+
+    this.urls.forEach(url => {
+      yamlContent.push(`  - url: '${url}'`);
+    });
+
+    return yamlContent.join('\n');
+  }
+
+  downloadURLs() {
+    if (this.urls.length === 0) return;
+    
+    const urlText = this.urls.join('\n');
+    const blob = new Blob([urlText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `album_urls_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    URL.revokeObjectURL(url);
+    this.showToast('下载完成');
+  }
+
+  async saveData() {
+    try {
+      await chrome.storage.local.set({ albumUrls: this.urls });
+    } catch (error) {
+      console.error('保存数据失败:', error);
+    }
+  }
+
+  async loadStoredData() {
+    try {
+      const result = await chrome.storage.local.get(['albumUrls', 'lastExtraction', 'isExtracting', 'extractionStartTime']);
+      
+      // 检查是否有正在进行的提取
+      if (result.isExtracting && result.extractionStartTime) {
+        const startTime = new Date(result.extractionStartTime);
+        const now = new Date();
+        const elapsedMinutes = (now - startTime) / (1000 * 60);
+        
+        // 如果提取开始时间超过5分钟，认为已超时
+        if (elapsedMinutes > 5) {
+          console.log('检测到超时的提取任务，清除状态');
+          chrome.storage.local.remove(['isExtracting', 'extractionStartTime']);
+        } else {
+          this.isExtracting = true;
+          console.log('检测到正在进行的提取任务');
+        }
+      }
+      
+      if (result.albumUrls) {
+        this.urls = result.albumUrls;
+        
+        // 显示最后提取时间
+        if (result.lastExtraction) {
+          const extractTime = new Date(result.lastExtraction).toLocaleString();
+          console.log('最后提取时间:', extractTime);
+        }
+      }
+    } catch (error) {
+      console.error('加载数据失败:', error);
+    }
+  }
+
+  async checkCurrentStatus() {
+    try {
+      // 先从存储中获取进度信息
+      const storageResult = await chrome.storage.local.get(['extractionProgress', 'lastProgressUpdate']);
+      if (storageResult.extractionProgress) {
+        this.extractionProgress = storageResult.extractionProgress;
+        console.log('从存储获取进度:', this.extractionProgress);
+      }
+
+      // 获取当前活动标签页
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (tab && (tab.url.includes('v2ph.com') || tab.url.includes('junmeitu.com'))) {
+        // 向content script查询当前状态
+        const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_EXTRACTION_STATUS' });
+        
+        if (response) {
+          this.isExtracting = response.isExtracting;
+          this.extractionProgress = response.progress;
+          
+          if (response.urls && response.urls.length > 0) {
+            this.urls = response.urls;
+          }
+          
+          console.log('同步状态:', {
+            isExtracting: this.isExtracting,
+            progress: this.extractionProgress,
+            urlsCount: this.urls.length
+          });
+          
+          // 更新界面显示
+          this.updateUI();
+        }
+      }
+    } catch (error) {
+      console.error('检查当前状态失败:', error);
+    }
+  }
+
+  startDataCheckInterval() {
+    // 每2秒检查一次存储数据更新
+    this.dataCheckInterval = setInterval(async () => {
+      // 检查是否有正在进行的提取
+      if (this.isExtracting) {
+        // 实时检查当前状态
+        await this.checkCurrentStatus();
+        
+        // 检查存储中的数据更新
+        const result = await chrome.storage.local.get(['albumUrls', 'lastExtraction', 'extractionComplete', 'extractionProgress']);
+        
+        // 如果有进度更新，更新界面
+        if (result.extractionProgress) {
+          this.extractionProgress = result.extractionProgress;
+          this.updateProgressDisplay();
+        }
+        
+        // 如果有新的URL数据，更新列表
+        if (result.albumUrls && result.albumUrls.length > this.urls.length) {
+          console.log(`URL列表更新: ${this.urls.length} -> ${result.albumUrls.length}`);
+          this.urls = result.albumUrls;
+          this.updateURLList();
+          this.updateCount();
+          this.updateButtons();
+        }
+        
+        // 检查是否有完成的数据
+        if (result.albumUrls && result.lastExtraction && result.extractionComplete) {
+          const lastTime = new Date(result.lastExtraction);
+          const now = new Date();
+          
+          // 如果数据是最近30秒内更新的，说明提取完成
+          if (now - lastTime < 30000 && result.albumUrls.length > 0) {
+            const siteName = result.site && result.site.includes('junmeitu.com') ? '俊美图.com' : 'V2PH.com';
+            this.handleExtractionComplete(result.albumUrls, siteName);
+          }
+        }
+      }
+    }, 1000);
+  }
+
+  stopDataCheckInterval() {
+    if (this.dataCheckInterval) {
+      clearInterval(this.dataCheckInterval);
+      this.dataCheckInterval = null;
+    }
+  }
+
+  showToast(message, type = 'success') {
+    // 创建toast提示
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // 显示动画
+    setTimeout(() => {
+      toast.classList.add('show');
+    }, 100);
+    
+    // 自动隐藏
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 300);
+    }, 2000);
+  }
+}
+
+// ==================== 演员信息管理器 ====================
+class ActorManager {
+  constructor() {
+    this.extractedData = null;
+  }
+
+  init() {
+    this.setupEventListeners();
+  }
+
+  setupEventListeners() {
+    // 提取演员信息按钮
+    document.getElementById('extractActorBtn').addEventListener('click', () => {
+      this.extractActorInfo();
+    });
+
+    // 下载Markdown文件按钮
+    document.getElementById('downloadActorBtn').addEventListener('click', () => {
+      this.downloadMarkdownFile();
+    });
+
+    // 监听来自content script的消息
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === 'actorInfoExtracted') {
+        this.extractedData = request.data;
+        this.handleActorInfoExtracted(request.data);
+      }
+    });
+  }
+
+  // 显示状态消息
+  showStatus(message, type = 'success') {
+    const status = document.getElementById('actorStatus');
+    status.textContent = message;
+    status.className = `status ${type}`;
+    status.style.display = 'block';
+    
+    setTimeout(() => {
+      status.style.display = 'none';
+    }, 3000);
+  }
+
+  // 显示/隐藏加载状态
+  showLoading(show) {
+    const loading = document.getElementById('actorLoading');
+    const extractBtn = document.getElementById('extractActorBtn');
+    loading.style.display = show ? 'block' : 'none';
+    extractBtn.disabled = show;
+  }
+
+  // 生成Markdown格式的内容
+  generateMarkdown(data) {
+    if (!data) return '';
+    
+    let markdown = '';
+    
+    // 添加图片（如果有）
+    if (data.image) {
+      if (data.image.startsWith('data:image/')) {
+        // Base64格式的图片
+        markdown += `<img alt="" src="${data.image}" />\n\n`;
+      } else if (data.image.startsWith('http')) {
+        // URL格式的图片
+        markdown += `![演员头像](${data.image})\n\n`;
+      }
+    }
+    
+    // 添加演员名称
+    markdown += `**${data.name}**\n`;
+    markdown += '---\n\n';
+    
+    // 添加个人信息
+    const info = data.info;
+    if (info.gender) markdown += `- 性别 ${info.gender}\n`;
+    if (info.hometown) markdown += `- 籍贯 ${info.hometown}\n`;
+    if (info.profession) markdown += `- 职业 ${info.profession}\n`;
+    if (info.birthday) markdown += `- 生日 ${info.birthday}\n`;
+    if (info.bloodType) markdown += `- 血型 ${info.bloodType}\n`;
+    if (info.measurements) markdown += `- 三围 ${info.measurements}\n`;
+    if (info.cupSize) markdown += `- 罩杯 ${info.cupSize}\n`;
+    if (info.height) markdown += `- 身高 ${info.height}\n`;
+    if (info.weight) markdown += `- 体重 ${info.weight}\n`;
+    if (info.zodiac) markdown += `- 星座 ${info.zodiac}\n`;
+    if (info.interests) markdown += `- 兴趣 ${info.interests}\n`;
+    
+    // 添加分隔线
+    markdown += '\n---\n';
+    
+    // 添加描述
+    if (data.description) {
+      markdown += data.description + '\n';
+    }
+    
+    return markdown;
+  }
+
+  // 提取演员信息
+  async extractActorInfo() {
+    this.showLoading(true);
+    
+    try {
+      // 获取当前活动标签页
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab.url.includes('v2ph.com/actor/') && !tab.url.includes('junmeitu.com/model/')) {
+        this.showStatus('请在V2PH演员页面或俊美图模特页面使用此功能', 'error');
+        this.showLoading(false);
+        return;
+      }
+      
+      // 向content script发送消息
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'extractActorInfo'
+      });
+      
+      if (response) {
+        this.extractedData = response;
+        this.handleActorInfoExtracted(response);
+      } else {
+        this.showStatus('提取失败，请重试', 'error');
+      }
+      
+    } catch (error) {
+      console.error('提取演员信息时出错:', error);
+      this.showStatus('提取失败: ' + error.message, 'error');
+    }
+    
+    this.showLoading(false);
+  }
+
+  handleActorInfoExtracted(data) {
+    // 生成Markdown预览
+    const markdown = this.generateMarkdown(data);
+    const previewContent = document.getElementById('previewContent');
+    previewContent.textContent = markdown;
+    
+    const preview = document.getElementById('preview');
+    preview.style.display = 'block';
+    
+    // 显示下载按钮
+    const downloadBtn = document.getElementById('downloadActorBtn');
+    downloadBtn.style.display = 'block';
+    
+    this.showStatus('演员信息提取成功！', 'success');
+  }
+
+  // 清理文件名，移除无效字符
+  sanitizeFilename(name) {
+    if (!name || typeof name !== 'string') {
+      return 'unknown_actor';
+    }
+    
+    // 移除或替换无效字符
+    let cleanName = name
+      .replace(/[<>:"/\\|?*]/g, '')  // 移除Windows不允许的字符
+      .replace(/[^\w\s\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff-]/g, '')  // 保留字母、数字、中文、日文、空格、连字符
+      .replace(/\s+/g, '_')  // 将空格替换为下划线
+      .replace(/_{2,}/g, '_')  // 将多个连续下划线替换为单个
+      .replace(/^_+|_+$/g, '')  // 移除开头和结尾的下划线
+      .trim();
+    
+    // 如果清理后的名称为空或太短，使用默认名称
+    if (!cleanName || cleanName.length < 1) {
+      cleanName = 'unknown_actor';
+    }
+    
+    // 限制文件名长度（Windows文件名限制）
+    if (cleanName.length > 100) {
+      cleanName = cleanName.substring(0, 100);
+    }
+    
+    return cleanName;
+  }
+
+  // 下载Markdown文件
+  downloadMarkdownFile() {
+    if (!this.extractedData) {
+      this.showStatus('没有可下载的数据', 'error');
+      return;
+    }
+    
+    const markdown = this.generateMarkdown(this.extractedData);
+    const cleanName = this.sanitizeFilename(this.extractedData.name);
+    const filename = `${cleanName}.md`;
+    
+    console.log('📁 生成文件名:', filename);
+    this.downloadMarkdown(markdown, filename);
+  }
+
+  // 下载文件
+  downloadMarkdown(content, filename) {
+    try {
+      console.log('📥 开始下载文件:', filename);
+      console.log('📄 文件内容长度:', content.length);
+      
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      
+      chrome.downloads.download({
+        url: url,
+        filename: filename,
+        saveAs: true
+      }, (downloadId) => {
+        if (chrome.runtime.lastError) {
+          console.error('❌ 下载失败:', chrome.runtime.lastError);
+          this.showStatus('下载失败: ' + chrome.runtime.lastError.message, 'error');
+        } else {
+          console.log('✅ 下载成功，ID:', downloadId);
+          this.showStatus('文件下载成功！', 'success');
+        }
+        URL.revokeObjectURL(url);
+      });
+    } catch (error) {
+      console.error('❌ 下载过程出错:', error);
+      this.showStatus('下载失败: ' + error.message, 'error');
+    }
+  }
+}
+
+// ==================== 初始化 ====================
+
+// 初始化弹窗
+document.addEventListener('DOMContentLoaded', () => {
+  new PopupController();
+});
