@@ -48,6 +48,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     return true; // 保持消息通道开放
   }
+  
+  // Markdown文件下载处理
+  if (request.action === 'downloadMarkdown') {
+    console.log('📥 Background: 收到下载Markdown请求:', request.filename);
+    downloadMarkdownFile(request.filename, request.content)
+      .then(() => {
+        console.log('✅ Background: Markdown下载成功');
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        console.error('❌ Background: Markdown下载失败:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // 保持消息通道开放
+  }
 });
 
 // 处理插件图标点击
@@ -116,6 +131,30 @@ async function downloadYAMLFile(filename, content) {
     
   } catch (error) {
     console.error('❌ Background: YAML文件下载失败:', error);
+    throw error;
+  }
+}
+
+// ==================== Markdown文件下载功能 ====================
+// 在background script中处理Markdown文件下载
+async function downloadMarkdownFile(filename, content) {
+  try {
+    console.log('📁 Background: 开始下载Markdown文件:', filename);
+    
+    // 在Service Worker中，我们需要使用data URL而不是Blob URL
+    const dataUrl = `data:text/markdown;charset=utf-8,${encodeURIComponent(content)}`;
+    
+    // 使用Chrome Downloads API下载文件
+    await chrome.downloads.download({
+      url: dataUrl,
+      filename: filename,
+      saveAs: false
+    });
+    
+    console.log('✅ Background: Markdown文件下载成功:', filename);
+    
+  } catch (error) {
+    console.error('❌ Background: Markdown文件下载失败:', error);
     throw error;
   }
 }

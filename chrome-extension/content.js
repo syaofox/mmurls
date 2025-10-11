@@ -3,6 +3,8 @@
 
 // 全局消息处理器实例
 let messageHandler = null;
+// 全局演员信息按钮管理器实例
+let actorButtonManager = null;
 
 // 清除旧数据 - 只清除特定键，避免影响其他扩展
 async function clearOldData() {
@@ -39,6 +41,13 @@ async function initializeExtension() {
     
     // 初始化消息处理器
     messageHandler = new MessageHandler();
+    
+    // 初始化演员信息按钮管理器
+    if (typeof ActorButtonManager !== 'undefined') {
+      actorButtonManager = new ActorButtonManager();
+      console.log('✅ 演员信息按钮管理器初始化完成');
+    }
+    
     console.log('✅ 美女相册信息提取器初始化完成');
     
   } catch (error) {
@@ -51,6 +60,11 @@ function cleanup() {
   if (messageHandler) {
     messageHandler.cleanup();
     messageHandler = null;
+  }
+  
+  if (actorButtonManager) {
+    actorButtonManager.cleanup();
+    actorButtonManager = null;
   }
 }
 

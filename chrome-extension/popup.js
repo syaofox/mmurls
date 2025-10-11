@@ -644,50 +644,9 @@ class ActorManager {
     extractBtn.disabled = show;
   }
 
-  // 生成Markdown格式的内容
+  // 生成Markdown格式的内容（使用统一的MarkdownGenerator）
   generateMarkdown(data) {
-    if (!data) return '';
-    
-    let markdown = '';
-    
-    // 添加图片（如果有）
-    if (data.image) {
-      if (data.image.startsWith('data:image/')) {
-        // Base64格式的图片
-        markdown += `<img alt="" src="${data.image}" />\n\n`;
-      } else if (data.image.startsWith('http')) {
-        // URL格式的图片
-        markdown += `![演员头像](${data.image})\n\n`;
-      }
-    }
-    
-    // 添加演员名称
-    markdown += `**${data.name}**\n`;
-    markdown += '---\n\n';
-    
-    // 添加个人信息
-    const info = data.info;
-    if (info.gender) markdown += `- 性别 ${info.gender}\n`;
-    if (info.hometown) markdown += `- 籍贯 ${info.hometown}\n`;
-    if (info.profession) markdown += `- 职业 ${info.profession}\n`;
-    if (info.birthday) markdown += `- 生日 ${info.birthday}\n`;
-    if (info.bloodType) markdown += `- 血型 ${info.bloodType}\n`;
-    if (info.measurements) markdown += `- 三围 ${info.measurements}\n`;
-    if (info.cupSize) markdown += `- 罩杯 ${info.cupSize}\n`;
-    if (info.height) markdown += `- 身高 ${info.height}\n`;
-    if (info.weight) markdown += `- 体重 ${info.weight}\n`;
-    if (info.zodiac) markdown += `- 星座 ${info.zodiac}\n`;
-    if (info.interests) markdown += `- 兴趣 ${info.interests}\n`;
-    
-    // 添加分隔线
-    markdown += '\n---\n';
-    
-    // 添加描述
-    if (data.description) {
-      markdown += data.description + '\n';
-    }
-    
-    return markdown;
+    return MarkdownGenerator.generateActorMarkdown(data);
   }
 
   // 提取演员信息
@@ -776,35 +735,34 @@ class ActorManager {
     }
     
     const markdown = this.generateMarkdown(this.extractedData);
-    const cleanName = this.sanitizeFilename(this.extractedData.name);
-    const filename = `${cleanName}.md`;
+    const filename = MarkdownGenerator.generateActorFilename(this.extractedData.name);
     
     console.log('📁 生成文件名:', filename);
     this.downloadMarkdown(markdown, filename);
   }
 
-  // 下载文件
+  // 下载文件（通过background script）
   downloadMarkdown(content, filename) {
     try {
       console.log('📥 开始下载文件:', filename);
       console.log('📄 文件内容长度:', content.length);
       
-      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      
-      chrome.downloads.download({
-        url: url,
-        filename: filename,
-        saveAs: true
-      }, (downloadId) => {
+      // 发送下载请求到background script
+      chrome.runtime.sendMessage({
+        action: 'downloadMarkdown',
+        content: content,
+        filename: filename
+      }, (response) => {
         if (chrome.runtime.lastError) {
           console.error('❌ 下载失败:', chrome.runtime.lastError);
           this.showStatus('下载失败: ' + chrome.runtime.lastError.message, 'error');
-        } else {
-          console.log('✅ 下载成功，ID:', downloadId);
+        } else if (response && response.success) {
+          console.log('✅ 下载成功');
           this.showStatus('文件下载成功！', 'success');
+        } else {
+          console.error('❌ 下载失败:', response?.error);
+          this.showStatus('下载失败: ' + (response?.error || '未知错误'), 'error');
         }
-        URL.revokeObjectURL(url);
       });
     } catch (error) {
       console.error('❌ 下载过程出错:', error);

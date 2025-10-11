@@ -63,10 +63,70 @@
   text-decoration: none !important;
 }
 
+/* 演员信息按钮样式 */
+.actor-info-btn {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 10000;
+  padding: 12px 20px;
+  background: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+  transition: all 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.actor-info-btn:hover {
+  background: #7b1fa2;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(156, 39, 176, 0.4);
+}
+
+.actor-info-btn:active {
+  transform: translateY(0);
+}
+
+.actor-info-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 6px rgba(108, 117, 125, 0.3);
+}
+
+.actor-info-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.actor-info-btn.extracting {
+  background: #4caf50 !important;
+  animation: pulse 2s infinite;
+}
+
+/* 确保演员信息按钮在所有网站上都可见 */
+.actor-info-btn {
+  background: #9c27b0 !important;
+  color: white !important;
+  border: none !important;
+  text-decoration: none !important;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .album-extractor-btn {
     top: 10px;
+    right: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+  
+  .actor-info-btn {
+    top: 60px;
     right: 10px;
     padding: 10px 16px;
     font-size: 13px;
