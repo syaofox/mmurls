@@ -101,6 +101,11 @@ class URLManager {
       this.copyYAMLFormat();
     });
 
+    // 下载YAML按钮
+    document.getElementById('downloadYamlBtn').addEventListener('click', () => {
+      this.downloadYAML();
+    });
+
     // 下载列表按钮
     document.getElementById('downloadBtn').addEventListener('click', () => {
       this.downloadURLs();
@@ -324,11 +329,13 @@ class URLManager {
   updateButtons() {
     const copyAllBtn = document.getElementById('copyAllBtn');
     const copyYamlBtn = document.getElementById('copyYamlBtn');
+    const downloadYamlBtn = document.getElementById('downloadYamlBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     
     const hasUrls = this.urls.length > 0;
     copyAllBtn.disabled = !hasUrls;
     copyYamlBtn.disabled = !hasUrls;
+    downloadYamlBtn.disabled = !hasUrls;
     downloadBtn.disabled = !hasUrls;
   }
 
@@ -389,6 +396,24 @@ class URLManager {
     });
 
     return yamlContent.join('\n');
+  }
+
+  downloadYAML() {
+    if (this.urls.length === 0) return;
+    
+    const yamlContent = this.generateYAMLFormat();
+    const blob = new Blob([yamlContent], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'albums.yaml';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    URL.revokeObjectURL(url);
+    this.showToast('YAML下载完成');
   }
 
   downloadURLs() {
