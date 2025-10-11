@@ -34,29 +34,29 @@ class JunMeituParser extends BaseParser {
     const href = nextLink.getAttribute('href');
     const currentPath = window.location.pathname;
     
+    // 标准化路径比较
+    // 处理相对路径和绝对路径的情况
+    let normalizedHref = href;
+    let normalizedCurrentPath = currentPath;
+    
+    // 如果href是相对路径，转换为绝对路径进行比较
+    if (href && !href.startsWith('http') && !href.startsWith('/')) {
+      // 相对路径，基于当前目录
+      const currentDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+      normalizedHref = currentDir + href;
+    } else if (href && href.startsWith('/')) {
+      // 绝对路径，直接使用
+      normalizedHref = href;
+    }
+    
     // 如果下一页链接和当前页路径相同，说明没有下一页
-    if (href === currentPath) return false;
-    
-    // 检查是否有更高页码的链接存在
-    const currentPage = this.getCurrentPageNumber();
-    const allLinks = paginationDiv.querySelectorAll('a[href*=".html"]');
-    
-    for (let link of allLinks) {
-      const linkHref = link.getAttribute('href');
-      if (linkHref && linkHref !== currentPath) {
-        // 尝试从链接中提取页码
-        const pageMatch = linkHref.match(/-(\d+)\.html$/);
-        if (pageMatch) {
-          const linkPage = parseInt(pageMatch[1]);
-          if (linkPage > currentPage) {
-            return true;
-          }
-        }
-      }
+    if (normalizedHref === normalizedCurrentPath) {
+      console.log('下一页链接指向当前页，已到最后一页');
+      return false;
     }
     
     // 如果下一页链接存在且指向不同页面，说明有下一页
-    return href !== currentPath;
+    return true;
   }
 
   getCurrentPageNumber() {
@@ -104,7 +104,7 @@ class JunMeituParser extends BaseParser {
             current.innerHTML = newElement.innerHTML;
           }
         }
-      ]);
+      ], newURL);
       
     } catch (error) {
       console.error('导航到第' + pageNumber + '页失败:', error);

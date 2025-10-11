@@ -106,7 +106,7 @@ class BaseParser {
   }
 
   // 通用的页面内容更新逻辑
-  updatePageContent(html, selectors) {
+  updatePageContent(html, selectors, newURL = null) {
     const parser = new DOMParser();
     const newDoc = parser.parseFromString(html, 'text/html');
     
@@ -121,7 +121,9 @@ class BaseParser {
       }
     });
 
-    // 更新URL
-    window.history.pushState({}, '', new URL(window.location.href).href);
+    // 更新URL（如果提供了新URL）
+    if (newURL) {
+      window.history.pushState({}, '', newURL);
+    }
   }
 }
