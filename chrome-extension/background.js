@@ -33,6 +33,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     return true; // 保持消息通道开放
   }
+  
+  // YAML文件下载处理
+  if (request.action === 'downloadYAML') {
+    console.log('📥 Background: 收到下载YAML请求:', request.filename);
+    downloadYAMLFile(request.filename, request.content)
+      .then(() => {
+        console.log('✅ Background: YAML下载成功');
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        console.error('❌ Background: YAML下载失败:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // 保持消息通道开放
+  }
 });
 
 // 处理插件图标点击
@@ -77,6 +92,30 @@ async function convertImageToBase64(imageUrl) {
     
   } catch (error) {
     console.error('❌ Background: 图片转换失败:', error);
+    throw error;
+  }
+}
+
+// ==================== YAML文件下载功能 ====================
+// 在background script中处理文件下载
+async function downloadYAMLFile(filename, content) {
+  try {
+    console.log('📁 Background: 开始下载YAML文件:', filename);
+    
+    // 在Service Worker中，我们需要使用data URL而不是Blob URL
+    const dataUrl = `data:text/yaml;charset=utf-8,${encodeURIComponent(content)}`;
+    
+    // 使用Chrome Downloads API下载文件
+    await chrome.downloads.download({
+      url: dataUrl,
+      filename: filename,
+      saveAs: false
+    });
+    
+    console.log('✅ Background: YAML文件下载成功:', filename);
+    
+  } catch (error) {
+    console.error('❌ Background: YAML文件下载失败:', error);
     throw error;
   }
 }

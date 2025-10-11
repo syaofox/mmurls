@@ -101,16 +101,50 @@ class AlbumURLExtractor {
         site: window.location.hostname
       });
 
-      // 自动复制YAML格式到剪贴板
+      // 自动下载YAML格式文件
       try {
         const yamlContent = generateYAMLFormat(Array.from(urls));
-        await navigator.clipboard.writeText(yamlContent);
-        console.log('YAML格式URL已复制到剪贴板');
         
-        // 显示复制成功提示
-        Toast.success(`已复制 ${urls.size} 个URL到剪贴板`);
+        // 清理文件名中的特殊字符
+        const sanitizeFilename = (title) => {
+          // 移除或替换不允许的字符
+          let sanitized = title.replace(/[\\/:\*\?"<>\|]/g, '_');
+          // 去除首尾空格和连续的下划线
+          sanitized = sanitized.trim().replace(/_+/g, '_');
+          // 如果清理后为空，使用默认名称
+          return sanitized || 'albums';
+        };
+        
+        const pageTitle = document.title || 'albums';
+        const sanitizedTitle = sanitizeFilename(pageTitle);
+        const filename = `${sanitizedTitle}_albums.yaml`;
+        
+        // 发送下载请求到background script（复用现有的下载逻辑）
+        console.log('🔄 准备发送下载请求到background script');
+        chrome.runtime.sendMessage({
+          action: 'downloadYAML',
+          filename: filename,
+          content: yamlContent
+        }, (response) => {
+          console.log('📨 收到background script响应:', response);
+          if (chrome.runtime.lastError) {
+            console.error('❌ 发送下载请求失败:', chrome.runtime.lastError);
+            Toast.error('下载失败: ' + chrome.runtime.lastError.message);
+            return;
+          }
+          
+          if (response && response.success) {
+            console.log(`✅ YAML文件已下载: ${filename}`);
+            Toast.success(`已下载 ${urls.size} 个URL到文件: ${filename}`);
+          } else {
+            console.error('❌ 下载失败:', response?.error);
+            Toast.error('下载失败: ' + (response?.error || '未知错误'));
+          }
+        });
+        
       } catch (error) {
-        console.error('复制到剪贴板失败:', error);
+        console.error('下载YAML文件失败:', error);
+        Toast.error('下载失败: ' + error.message);
       }
 
     } catch (error) {
