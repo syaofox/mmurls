@@ -121,6 +121,11 @@ class URLManager {
       this.sendToServer();
     });
 
+    // 发送当前页面按钮
+    document.getElementById('sendCurrentPageBtn').addEventListener('click', () => {
+      this.sendCurrentPageToServer();
+    });
+
     // 服务器设置
     document.getElementById('saveServerUrlBtn').addEventListener('click', () => {
       this.saveServerUrlSettings();
@@ -496,6 +501,54 @@ class URLManager {
     } finally {
       sendToServerBtn.disabled = this.urls.length === 0;
       sendToServerBtn.textContent = originalText;
+    }
+  }
+
+  async sendCurrentPageToServer() {
+    const btn = document.getElementById('sendCurrentPageBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '发送中...';
+
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.url) {
+        throw new Error('无法获取当前页面');
+      }
+      const pageUrl = tab.url;
+
+      const serverUrl = this.serverUrl || DEFAULT_SERVER_URL;
+      const endpoint = `${serverUrl}/albums/add`;
+      const body = `url=${encodeURIComponent(pageUrl)}`;
+
+      const origin = `${serverUrl}/*`;
+      const hasPermission = await chrome.permissions.contains({ origins: [origin] });
+      if (!hasPermission) {
+        const granted = await chrome.permissions.request({ origins: [origin] });
+        if (!granted) {
+          throw new Error('需要授予访问该服务器的权限');
+        }
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: body
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      this.showToast('当前页面已发送到下载服务器');
+    } catch (error) {
+      console.error('发送当前页面失败:', error);
+      this.showToast('发送失败: ' + error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   }
 
