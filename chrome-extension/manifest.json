@@ -7,17 +7,22 @@
     "activeTab",
     "storage",
     "downloads",
-    "clipboardWrite"
+    "clipboardWrite",
+    "permissions"
   ],
   "host_permissions": [
     "https://www.v2ph.com/*",
     "https://cdn.v2ph.com/*",
     "https://www.junmeitu.com/*",
-    "https://i.wujituku.com/*"
+    "https://i.wujituku.com/*",
+    "http://10.10.10.2:9102/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://www.v2ph.com/*", "https://www.junmeitu.com/*"],
+      "matches": [
+        "https://www.v2ph.com/*",
+        "https://www.junmeitu.com/*"
+      ],
       "js": [
         "utils/image-processor.js",
         "utils/yaml-generator.js",
@@ -36,7 +41,9 @@
         "core/message-handler.js",
         "content.js"
       ],
-      "css": ["content.css"]
+      "css": [
+        "content.css"
+      ]
     }
   ],
   "action": {
@@ -50,5 +57,9 @@
   },
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ]
 }

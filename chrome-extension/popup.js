@@ -61,10 +61,14 @@ class PopupController {
 }
 
 // ==================== URL管理器 ====================
+const DEFAULT_SERVER_URL = 'http://10.10.10.2:9102';
+const STORAGE_KEY_SERVER_URL = 'downloadServerUrl';
+
 class URLManager {
   constructor() {
     this.urls = [];
     this.isExtracting = false;
+    this.serverUrl = DEFAULT_SERVER_URL;
     this.extractionProgress = {
       currentPage: 0,
       totalPages: 0,
@@ -75,6 +79,7 @@ class URLManager {
   init() {
     this.setupEventListeners();
     this.loadStoredData();
+    this.loadServerUrlSettings();
     this.checkCurrentStatus();
     this.updateUI();
     this.startDataCheckInterval();
@@ -109,6 +114,19 @@ class URLManager {
     // 下载列表按钮
     document.getElementById('downloadBtn').addEventListener('click', () => {
       this.downloadURLs();
+    });
+
+    // 发送到服务器按钮
+    document.getElementById('sendToServerBtn').addEventListener('click', () => {
+      this.sendToServer();
+    });
+
+    // 服务器设置
+    document.getElementById('saveServerUrlBtn').addEventListener('click', () => {
+      this.saveServerUrlSettings();
+    });
+    document.getElementById('resetServerUrlBtn').addEventListener('click', () => {
+      this.resetServerUrlSettings();
     });
 
     // 监听来自content script的消息
@@ -331,12 +349,14 @@ class URLManager {
     const copyYamlBtn = document.getElementById('copyYamlBtn');
     const downloadYamlBtn = document.getElementById('downloadYamlBtn');
     const downloadBtn = document.getElementById('downloadBtn');
+    const sendToServerBtn = document.getElementById('sendToServerBtn');
     
     const hasUrls = this.urls.length > 0;
     copyAllBtn.disabled = !hasUrls;
     copyYamlBtn.disabled = !hasUrls;
     downloadYamlBtn.disabled = !hasUrls;
     downloadBtn.disabled = !hasUrls;
+    sendToServerBtn.disabled = !hasUrls;
   }
 
   truncateURL(url, maxLength = 60) {
@@ -434,6 +454,51 @@ class URLManager {
     this.showToast('下载完成');
   }
 
+  async sendToServer() {
+    if (this.urls.length === 0) return;
+
+    const sendToServerBtn = document.getElementById('sendToServerBtn');
+    const originalText = sendToServerBtn.textContent;
+    sendToServerBtn.disabled = true;
+    sendToServerBtn.textContent = '发送中...';
+
+    const serverUrl = this.serverUrl || DEFAULT_SERVER_URL;
+    const endpoint = `${serverUrl}/albums/add-batch`;
+    const body = `urls=${encodeURIComponent(this.urls.join('\n'))}`;
+
+    try {
+      // 自定义服务器需请求权限
+      const origin = `${serverUrl}/*`;
+      const hasPermission = await chrome.permissions.contains({ origins: [origin] });
+      if (!hasPermission) {
+        const granted = await chrome.permissions.request({ origins: [origin] });
+        if (!granted) {
+          throw new Error('需要授予访问该服务器的权限');
+        }
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: body
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      this.showToast(`已发送 ${this.urls.length} 个相册到下载服务器`);
+    } catch (error) {
+      console.error('发送到服务器失败:', error);
+      this.showToast('发送失败: ' + error.message, 'error');
+    } finally {
+      sendToServerBtn.disabled = this.urls.length === 0;
+      sendToServerBtn.textContent = originalText;
+    }
+  }
+
   async saveData() {
     try {
       await chrome.storage.local.set({ albumUrls: this.urls });
@@ -442,9 +507,53 @@ class URLManager {
     }
   }
 
+  async loadServerUrlSettings() {
+    try {
+      const result = await chrome.storage.local.get([STORAGE_KEY_SERVER_URL]);
+      if (result[STORAGE_KEY_SERVER_URL]) {
+        this.serverUrl = result[STORAGE_KEY_SERVER_URL].trim();
+      }
+      const input = document.getElementById('serverUrlInput');
+      if (input) input.value = this.serverUrl;
+    } catch (error) {
+      console.error('加载服务器设置失败:', error);
+    }
+  }
+
+  async saveServerUrlSettings() {
+    const input = document.getElementById('serverUrlInput');
+    const url = input?.value?.trim() || '';
+    if (!url) {
+      this.showToast('请输入服务器地址', 'error');
+      return;
+    }
+    try {
+      // 校验 URL 格式
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        this.showToast('请输入有效的 http 或 https 地址', 'error');
+        return;
+      }
+      const serverUrl = `${parsed.protocol}//${parsed.host}`;
+      await chrome.storage.local.set({ [STORAGE_KEY_SERVER_URL]: serverUrl });
+      this.serverUrl = serverUrl;
+      this.showToast('服务器地址已保存');
+    } catch (error) {
+      this.showToast('请输入有效的 URL 格式', 'error');
+    }
+  }
+
+  async resetServerUrlSettings() {
+    this.serverUrl = DEFAULT_SERVER_URL;
+    await chrome.storage.local.remove([STORAGE_KEY_SERVER_URL]);
+    const input = document.getElementById('serverUrlInput');
+    if (input) input.value = DEFAULT_SERVER_URL;
+    this.showToast('已恢复默认地址');
+  }
+
   async loadStoredData() {
     try {
-      const result = await chrome.storage.local.get(['albumUrls', 'lastExtraction', 'isExtracting', 'extractionStartTime']);
+      const result = await chrome.storage.local.get(['albumUrls', 'lastExtraction', 'isExtracting', 'extractionStartTime', STORAGE_KEY_SERVER_URL]);
       
       // 检查是否有正在进行的提取
       if (result.isExtracting && result.extractionStartTime) {
@@ -470,6 +579,9 @@ class URLManager {
           const extractTime = new Date(result.lastExtraction).toLocaleString();
           console.log('最后提取时间:', extractTime);
         }
+      }
+      if (result[STORAGE_KEY_SERVER_URL]) {
+        this.serverUrl = result[STORAGE_KEY_SERVER_URL].trim();
       }
     } catch (error) {
       console.error('加载数据失败:', error);

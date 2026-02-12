@@ -372,6 +372,37 @@ body {
 }
 
 /* ==================== 通用样式 ==================== */
+.settings-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #dee2e6;
+}
+
+.settings-section h4 {
+  font-size: 14px;
+  color: #6c757d;
+  margin-bottom: 8px;
+}
+
+.settings-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.settings-row input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
 .footer {
   margin-top: 20px;
   padding-top: 16px;
