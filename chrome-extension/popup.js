@@ -61,7 +61,7 @@ class PopupController {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       // 根据当前页面类型自动切换到对应标签页
-      if (tab.url.includes('/actor/') || tab.url.includes('/model/')) {
+      if (tab.url.includes('/actor/') || tab.url.includes('/model/') || tab.url.includes('meitulu.me/t/')) {
         this.switchTab('info');
       } else if (isAlbumExtractSupported(tab.url)) {
         this.switchTab('urls');
@@ -834,8 +834,8 @@ class ActorManager {
       // 获取当前活动标签页
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      if (!tab.url.includes('v2ph.com/actor/') && !tab.url.includes('junmeitu.com/model/')) {
-        this.showStatus('请在V2PH演员页面或俊美图模特页面使用此功能', 'error');
+      if (!tab.url.includes('v2ph.com/actor/') && !tab.url.includes('junmeitu.com/model/') && !tab.url.includes('meitulu.me/t/')) {
+        this.showStatus('请在V2PH演员页面、俊美图模特页面或美图录模特页面使用此功能', 'error');
         this.showLoading(false);
         return;
       }

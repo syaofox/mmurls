@@ -28,8 +28,8 @@ class ImageProcessor {
                     this.crossOriginMethod(img.src),
                     this.createTimeout()
                 ]);
-            } else if (siteType === 'junmeitu') {
-                console.log('🔄 使用俊美图专用方法 (Background Script)...');
+            } else if (siteType === 'junmeitu' || siteType === 'meitulu') {
+                console.log(`🔄 使用${siteType === 'junmeitu' ? '俊美图' : '美图录'}专用方法 (Background Script)...`);
                 result = await Promise.race([
                     this.backgroundScriptMethod(img.src),
                     this.createTimeout()
@@ -66,7 +66,7 @@ class ImageProcessor {
                 } catch (e) {
                     console.warn('❌ 备用方法也失败:', e.message);
                 }
-            } else if (siteType === 'junmeitu') {
+            } else if (siteType === 'junmeitu' || siteType === 'meitulu') {
                 console.log('🔄 尝试备用方法 (CrossOrigin)...');
                 try {
                     const result = await Promise.race([
@@ -95,6 +95,8 @@ class ImageProcessor {
             return 'v2ph';
         } else if (currentUrl.includes('junmeitu.com/model/')) {
             return 'junmeitu';
+        } else if (currentUrl.includes('meitulu.me/t/')) {
+            return 'meitulu';
         } else {
             return 'unknown';
         }

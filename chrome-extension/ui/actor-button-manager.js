@@ -17,7 +17,7 @@ class ActorButtonManager {
   // 检查是否为演员详情页
   isActorPage() {
     const url = window.location.href;
-    return url.includes('/actor/') || url.includes('/model/');
+    return url.includes('/actor/') || url.includes('/model/') || url.includes('meitulu.me/t/');
   }
 
   // 创建演员信息提取按钮

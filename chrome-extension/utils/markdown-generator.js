@@ -22,7 +22,11 @@ class MarkdownGenerator {
     markdown += '---\n\n';
     
     // 添加个人信息
-    const info = data.info;
+    const info = data.info || {};
+    if (info.nameChinese) markdown += `- 中文名 ${info.nameChinese}\n`;
+    if (info.nameJapanese) markdown += `- 日本名 ${info.nameJapanese}\n`;
+    if (info.nameEnglish) markdown += `- 英文名 ${info.nameEnglish}\n`;
+    if (info.agency) markdown += `- 事务所 ${info.agency}\n`;
     if (info.gender) markdown += `- 性别 ${info.gender}\n`;
     if (info.hometown) markdown += `- 籍贯 ${info.hometown}\n`;
     if (info.profession) markdown += `- 职业 ${info.profession}\n`;
@@ -34,6 +38,7 @@ class MarkdownGenerator {
     if (info.weight) markdown += `- 体重 ${info.weight}\n`;
     if (info.zodiac) markdown += `- 星座 ${info.zodiac}\n`;
     if (info.interests) markdown += `- 兴趣 ${info.interests}\n`;
+    if (info.photoStyle) markdown += `- 写真风格 ${info.photoStyle}\n`;
     
     // 添加分隔线
     markdown += '\n---\n';

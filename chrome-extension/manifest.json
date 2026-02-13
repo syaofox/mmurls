@@ -39,6 +39,7 @@
         "parsers/junmeitu-parser.js",
         "extractors/v2ph-actor-extractor.js",
         "extractors/junmeitu-actor-extractor.js",
+        "extractors/meitulu-actor-extractor.js",
         "core/actor-info-extractor.js",
         "core/album-url-extractor.js",
         "core/message-handler.js",

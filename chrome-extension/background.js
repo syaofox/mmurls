@@ -77,12 +77,14 @@ async function convertImageToBase64(imageUrl) {
   try {
     console.log('🖼️ Background: 开始转换图片:', imageUrl);
     
-    // 使用fetch获取图片数据
+    const headers = { 'Accept': 'image/*' };
+    if (imageUrl.includes('meitulu.me')) {
+      headers['Referer'] = 'https://meitulu.me/';
+    }
+    
     const response = await fetch(imageUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'image/*'
-      }
+      headers
     });
     
     if (!response.ok) {

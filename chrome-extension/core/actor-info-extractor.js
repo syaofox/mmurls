@@ -3,7 +3,8 @@ class ActorInfoExtractor {
   constructor() {
     this.extractors = {
       'v2ph': new V2PHActorExtractor(),
-      'junmeitu': new JunMeituActorExtractor()
+      'junmeitu': new JunMeituActorExtractor(),
+      'meitulu': new MeituluActorExtractor()
     };
   }
 
@@ -21,6 +22,9 @@ class ActorInfoExtractor {
       } else if (currentUrl.includes('v2ph.com/actor/')) {
         console.log('🌐 检测到V2PH网站，使用V2PH提取逻辑');
         return await this.extractors.v2ph.extractActorInfo();
+      } else if (currentUrl.includes('meitulu.me/t/')) {
+        console.log('🌐 检测到美图录网站，使用美图录提取逻辑');
+        return await this.extractors.meitulu.extractActorInfo();
       } else {
         console.warn('⚠️ 不支持的网站类型');
         return null;
