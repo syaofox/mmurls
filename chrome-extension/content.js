@@ -5,6 +5,8 @@
 let messageHandler = null;
 // 全局演员信息按钮管理器实例
 let actorButtonManager = null;
+// 发送到服务器按钮管理器实例
+let sendToServerButtonManager = null;
 
 // 清除旧数据 - 只清除特定键，避免影响其他扩展
 async function clearOldData() {
@@ -47,6 +49,11 @@ async function initializeExtension() {
       actorButtonManager = new ActorButtonManager();
       console.log('✅ 演员信息按钮管理器初始化完成');
     }
+
+    // 初始化发送到服务器按钮
+    if (typeof SendToServerButtonManager !== 'undefined') {
+      sendToServerButtonManager = new SendToServerButtonManager();
+    }
     
     console.log('✅ 美女相册信息提取器初始化完成');
     
@@ -65,6 +72,11 @@ function cleanup() {
   if (actorButtonManager) {
     actorButtonManager.cleanup();
     actorButtonManager = null;
+  }
+
+  if (sendToServerButtonManager) {
+    sendToServerButtonManager.cleanup();
+    sendToServerButtonManager = null;
   }
 }
 

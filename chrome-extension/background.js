@@ -63,6 +63,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     return true; // 保持消息通道开放
   }
+
+  // 发送到下载服务器
+  if (request.action === 'sendToDownloadServer') {
+    handleSendToDownloadServer(request)
+      .then(result => sendResponse(result))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
 });
 
 // 处理插件图标点击
@@ -70,6 +78,42 @@ chrome.action.onClicked.addListener((tab) => {
   // 这个事件通常不会触发，因为我们设置了popup
   console.log('插件图标被点击');
 });
+
+// ==================== 发送到下载服务器 ====================
+const STORAGE_KEY_SERVER_URL = 'downloadServerUrl';
+const DEFAULT_SERVER_URL = 'http://10.10.10.2:9102';
+
+async function handleSendToDownloadServer(request) {
+  const { type, url, urls } = request;
+  const result = await chrome.storage.local.get([STORAGE_KEY_SERVER_URL]);
+  const serverUrl = (result[STORAGE_KEY_SERVER_URL] || DEFAULT_SERVER_URL).trim();
+
+  if (type === 'currentPage' && url) {
+    const endpoint = `${serverUrl}/albums/add`;
+    const body = `url=${encodeURIComponent(url)}`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return { success: true };
+  }
+
+  if (type === 'albumUrls' && Array.isArray(urls) && urls.length > 0) {
+    const endpoint = `${serverUrl}/albums/add-batch`;
+    const body = `urls=${encodeURIComponent(urls.join('\n'))}`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return { success: true };
+  }
+
+  throw new Error('无效的请求参数');
+}
 
 // ==================== 图片转换功能 ====================
 // 使用Chrome扩展权限转换图片
