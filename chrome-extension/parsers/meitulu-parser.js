@@ -5,10 +5,10 @@ class MeituluParser extends BaseParser {
     super('https://meitulu.me');
   }
 
-  // 判断当前页面类型：模特页 /t/xxx/ 或 分类页 /rihan/ 等
+  // 判断当前页面类型：模特页 /t/xxx/ 或 /t/xxx/index_N.html 或 分类页 /rihan/ 等
   isModelPage() {
     return /\/t\/[^/]+\/?$/.test(window.location.pathname) ||
-           /\/t\/[^/]+\/\d+\/?$/.test(window.location.pathname);
+           /\/t\/[^/]+\/index_\d+\.html$/.test(window.location.pathname);
   }
 
   extractCurrentPageURLs() {
@@ -57,9 +57,9 @@ class MeituluParser extends BaseParser {
     const pathname = window.location.pathname;
 
     if (this.isModelPage()) {
-      // 模特页: /t/jimulisha/2/ -> 2
-      const modelMatch = pathname.match(/\/t\/[^/]+\/(\d+)\/?$/);
-      if (modelMatch) return parseInt(modelMatch[1]);
+      // 模特页: /t/Winnie/index_2.html -> 2，第一页 /t/Winnie/ -> 1
+      const indexMatch = pathname.match(/\/t\/[^/]+\/index_(\d+)\.html$/);
+      if (indexMatch) return parseInt(indexMatch[1]);
       return 1;
     }
 
@@ -74,14 +74,14 @@ class MeituluParser extends BaseParser {
     let newURL;
 
     if (this.isModelPage()) {
-      // 模特页: /t/jimulisha/ 或 /t/jimulisha/2/
-      const modelMatch = pathname.match(/^(\/t\/[^/]+)\/?(\d+)?\/?$/);
-      const basePath = modelMatch ? modelMatch[1] : pathname.replace(/\/\d+\/?$/, '');
+      // 模特页: /t/Winnie/ 或 /t/Winnie/index_2.html，正确格式为 index_N.html 而非 /N/
+      const modelMatch = pathname.match(/^(\/t\/[^/]+)\/?(index_\d+\.html)?$/);
+      const basePath = modelMatch ? modelMatch[1] : pathname.replace(/\/index_\d+\.html$/, '').replace(/\/$/, '');
 
       if (pageNumber === 1) {
         newURL = `${this.baseURL}${basePath}/`;
       } else {
-        newURL = `${this.baseURL}${basePath}/${pageNumber}/`;
+        newURL = `${this.baseURL}${basePath}/index_${pageNumber}.html`;
       }
     } else {
       // 分类页: /rihan/ 或 /rihan/index_2.html
@@ -98,7 +98,7 @@ class MeituluParser extends BaseParser {
     try {
       console.log(`正在导航到: ${newURL}`);
 
-      const html = await this.fetchPageContent(newURL);
+      const html = await this.fetchPageContentWithRetry(newURL);
 
       const updateSelectors = [
         {
@@ -131,5 +131,29 @@ class MeituluParser extends BaseParser {
     return new Promise(resolve => {
       setTimeout(resolve, 1200); // 美图录等待1.2秒
     });
+  }
+
+  // 带 Referer 和重试的 fetch，减少 404 等间歇性错误
+  async fetchPageContentWithRetry(url, maxRetries = 3) {
+    const headers = {
+      'Referer': `${this.baseURL}/`,
+      'User-Agent': navigator.userAgent
+    };
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const html = await this.fetchPageContent(url, headers);
+        return html;
+      } catch (error) {
+        const isRetryable = error.message.includes('404') || error.message.includes('status: 5');
+        if (attempt < maxRetries && isRetryable) {
+          const delay = attempt * 1500; // 递增延迟：1.5s, 3s
+          console.warn(`第${attempt}次请求失败，${delay}ms 后重试:`, error.message);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw error;
+        }
+      }
+    }
   }
 }
