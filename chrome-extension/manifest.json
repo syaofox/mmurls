@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "美女相册信息提取器",
   "version": "1.0.0",
-  "description": "获取相册URL和提取演员信息的Chrome插件，支持V2PH和俊美图网站",
+  "description": "获取相册URL和提取演员信息的Chrome插件，支持V2PH、俊美图、美图录网站",
   "permissions": [
     "activeTab",
     "storage",
@@ -15,13 +15,15 @@
     "https://cdn.v2ph.com/*",
     "https://www.junmeitu.com/*",
     "https://i.wujituku.com/*",
+    "https://meitulu.me/*",
     "http://10.10.10.2:9102/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "https://www.v2ph.com/*",
-        "https://www.junmeitu.com/*"
+        "https://www.junmeitu.com/*",
+        "https://meitulu.me/*"
       ],
       "js": [
         "utils/image-processor.js",
@@ -32,6 +34,7 @@
         "ui/button-manager.js",
         "ui/actor-button-manager.js",
         "parsers/base-parser.js",
+        "parsers/meitulu-parser.js",
         "parsers/v2ph-parser.js",
         "parsers/junmeitu-parser.js",
         "extractors/v2ph-actor-extractor.js",

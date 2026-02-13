@@ -7,10 +7,8 @@ class MessageHandler {
   }
 
   init() {
-    // 只在支持的网站初始化相册URL提取器
-    if (window.location.hostname.includes('v2ph.com') || window.location.hostname.includes('junmeitu.com')) {
-      this.albumExtractor = new AlbumURLExtractor();
-    }
+    // content script 仅在 manifest matches 的站点注入，故此处直接初始化
+    this.albumExtractor = new AlbumURLExtractor();
 
     // 设置统一的消息监听器
     this.setupMessageListener();

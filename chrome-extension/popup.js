@@ -1,6 +1,18 @@
 // 合并的Chrome插件 - 弹窗脚本
 // 整合了相册URL获取器和演员信息提取器功能
 
+// 支持的相册 URL 提取站点（与 manifest content_scripts.matches 保持一致）
+function isAlbumExtractSupported(url) {
+  return url?.includes('v2ph.com') || url?.includes('junmeitu.com') || url?.includes('meitulu.me');
+}
+
+function getSiteDisplayName(site) {
+  if (!site) return 'V2PH.com';
+  if (site.includes('junmeitu.com')) return '俊美图.com';
+  if (site.includes('meitulu.me')) return '美图录.me';
+  return 'V2PH.com';
+}
+
 class PopupController {
   constructor() {
     this.currentTab = 'urls';
@@ -51,7 +63,7 @@ class PopupController {
       // 根据当前页面类型自动切换到对应标签页
       if (tab.url.includes('/actor/') || tab.url.includes('/model/')) {
         this.switchTab('info');
-      } else if (tab.url.includes('v2ph.com') || tab.url.includes('junmeitu.com')) {
+      } else if (isAlbumExtractSupported(tab.url)) {
         this.switchTab('urls');
       }
     } catch (error) {
@@ -176,8 +188,8 @@ class URLManager {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       // 检查是否在支持的网站上
-      if (!tab.url.includes('v2ph.com') && !tab.url.includes('junmeitu.com')) {
-        this.handleError('请在支持的网站上使用此功能（V2PH.com 或 俊美图.com）');
+      if (!isAlbumExtractSupported(tab.url)) {
+        this.handleError('请在支持的网站上使用此功能（V2PH.com、俊美图.com 或 美图录.me）');
         return;
       }
       
@@ -653,7 +665,7 @@ class URLManager {
       // 获取当前活动标签页
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      if (tab && (tab.url.includes('v2ph.com') || tab.url.includes('junmeitu.com'))) {
+      if (tab && isAlbumExtractSupported(tab.url)) {
         // 向content script查询当前状态
         try {
           const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_EXTRACTION_STATUS' });
@@ -721,7 +733,7 @@ class URLManager {
           
           // 如果数据是最近30秒内更新的，说明提取完成
           if (now - lastTime < 30000 && result.albumUrls.length > 0) {
-            const siteName = result.site && result.site.includes('junmeitu.com') ? '俊美图.com' : 'V2PH.com';
+            const siteName = getSiteDisplayName(result.site);
             this.handleExtractionComplete(result.albumUrls, siteName);
           }
         }

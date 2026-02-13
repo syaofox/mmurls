@@ -3,7 +3,8 @@ class AlbumURLExtractor {
   constructor() {
     this.parsers = {
       'v2ph.com': new V2PHParser(),
-      'junmeitu.com': new JunMeituParser()
+      'junmeitu.com': new JunMeituParser(),
+      'meitulu.me': new MeituluParser()
     };
     this.currentParser = null;
     this.extractedURLs = new Set();
@@ -37,6 +38,9 @@ class AlbumURLExtractor {
     } else if (hostname.includes('junmeitu.com')) {
       this.currentParser = this.parsers['junmeitu.com'];
       console.log('检测到俊美图网站，使用俊美图解析器');
+    } else if (hostname.includes('meitulu.me')) {
+      this.currentParser = this.parsers['meitulu.me'];
+      console.log('检测到美图录网站，使用美图录解析器');
     } else {
       console.log('未支持的网站:', hostname);
     }
