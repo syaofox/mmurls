@@ -28,45 +28,50 @@ class ActorButtonManager {
       existingBtn.remove();
     }
 
-    // 创建按钮
+    // 创建按钮 - 圆形图标形式
     const button = document.createElement('button');
     button.id = 'actor-info-btn';
-    button.textContent = '🎭 获取演员信息';
+    button.innerHTML = '🎭';
+    button.title = '获取演员信息';
     button.className = 'actor-info-btn';
     
-    // 设置样式 - 与相册按钮区分，使用紫色系
+    // 圆形图标样式，与相册按钮并排于右下角
     button.style.cssText = `
       position: fixed;
-      top: 70px;
-      right: 20px;
+      bottom: 76px;
+      right: 24px;
       z-index: 10000;
-      padding: 12px 20px;
-      background: #9c27b0;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(156, 39, 176, 0.9);
       color: white;
       border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
+      border-radius: 50%;
+      font-size: 20px;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
-      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(156, 39, 176, 0.4);
+      transition: all 0.2s ease;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
     // 添加悬停效果
     button.addEventListener('mouseenter', () => {
       if (!button.disabled) {
-        button.style.background = '#7b1fa2';
-        button.style.transform = 'translateY(-2px)';
-        button.style.boxShadow = '0 6px 16px rgba(156, 39, 176, 0.4)';
+        button.style.background = 'rgba(123, 31, 162, 0.95)';
+        button.style.transform = 'scale(1.08)';
+        button.style.boxShadow = '0 4px 12px rgba(156, 39, 176, 0.5)';
       }
     });
 
     button.addEventListener('mouseleave', () => {
       if (!button.disabled) {
-        button.style.background = '#9c27b0';
-        button.style.transform = 'translateY(0)';
-        button.style.boxShadow = '0 4px 12px rgba(156, 39, 176, 0.3)';
+        button.style.background = 'rgba(156, 39, 176, 0.9)';
+        button.style.transform = 'scale(1)';
+        button.style.boxShadow = '0 2px 8px rgba(156, 39, 176, 0.4)';
       }
     });
 
@@ -147,14 +152,16 @@ class ActorButtonManager {
     if (!this.button) return;
 
     if (extracting) {
-      this.button.textContent = '⏳ 提取中...';
+      this.button.innerHTML = '⏳';
+      this.button.title = '提取中...';
       this.button.disabled = true;
-      this.button.style.background = '#4caf50';
-      this.button.style.animation = 'pulse 2s infinite';
+      this.button.style.background = 'rgba(76, 175, 80, 0.9)';
+      this.button.style.animation = 'mmurls-pulse 2s infinite';
     } else {
-      this.button.textContent = '🎭 获取演员信息';
+      this.button.innerHTML = '🎭';
+      this.button.title = '获取演员信息';
       this.button.disabled = false;
-      this.button.style.background = '#9c27b0';
+      this.button.style.background = 'rgba(156, 39, 176, 0.9)';
       this.button.style.animation = 'none';
     }
   }

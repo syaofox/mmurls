@@ -12,29 +12,34 @@ class ButtonManager {
       existingBtn.remove();
     }
 
-    // 创建按钮
+    // 创建按钮 - 圆形图标形式
     const button = document.createElement('button');
     button.id = id;
-    button.textContent = text;
+    button.innerHTML = '📁';
+    button.title = text;
     button.className = className;
     button.disabled = false;
     
-    // 添加样式
+    // 圆形图标样式，减少遮挡
     button.style.cssText = `
       position: fixed;
-      top: 20px;
-      right: 20px;
+      bottom: 24px;
+      right: 24px;
       z-index: 10000;
-      padding: 12px 20px;
-      background: #007bff;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 123, 255, 0.9);
       color: white;
       border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
+      border-radius: 50%;
+      font-size: 20px;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+      transition: all 0.2s ease;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
@@ -62,7 +67,10 @@ class ButtonManager {
     } = options;
 
     if (text !== undefined) {
-      button.textContent = text;
+      button.title = text;
+    }
+    if (extracting !== undefined) {
+      button.innerHTML = extracting ? '⏳' : '📁';
     }
 
     if (disabled !== undefined) {
@@ -75,10 +83,10 @@ class ButtonManager {
 
     // 处理提取状态的特殊样式
     if (extracting) {
-      button.style.background = '#28a745';
-      button.style.animation = 'pulse 2s infinite';
+      button.style.background = 'rgba(40, 167, 69, 0.9)';
+      button.style.animation = 'mmurls-pulse 2s infinite';
     } else {
-      button.style.background = '#007bff';
+      button.style.background = 'rgba(0, 123, 255, 0.9)';
       button.style.animation = 'none';
     }
   }
