@@ -1,0 +1,245 @@
+---
+description: 新增网站支持的分步指南和检查清单
+globs: chrome-extension/parsers/**/*.js, chrome-extension/extractors/**/*.js, chrome-extension/core/*.js, chrome-extension/ui/actor-button-manager.js, chrome-extension/manifest.json
+alwaysApply: false
+---
+
+# 新增网站支持指南
+
+新增网站需同时支持两类功能（可只实现其一）：
+- **相册URL获取**：Parser 继承 BaseParser
+- **演员信息提取**：ActorExtractor 独立类
+
+## 一、前置检查清单
+
+在开发前确认：
+
+- [ ] 目标网站的相册列表页 URL 格式（是否分页、分页规则）
+- [ ] 相册链接的 CSS 选择器（在控制台用 `document.querySelectorAll('选择器')` 验证）
+- [ ] 分页元素（"下一页"链接或页码区域的选择器）
+- [ ] 若支持演员页：演员详情页 URL 模式（如 `/actor/xxx`、`/model/xxx`）
+- [ ] 演员页的信息结构（姓名、图片、详细信息的 DOM 位置）
+- [ ] 图片是否跨域（若跨域需在 manifest 的 host_permissions 添加 CDN 域名）
+
+## 二、相册URL解析器 (Parser)
+
+### 必须实现的方法
+
+参考 [base-parser.js](chrome-extension/parsers/base-parser.js)：
+
+| 方法 | 说明 |
+|------|------|
+| `extractCurrentPageURLs()` | 返回当前页相册 URL 数组，使用 `this.normalizeURL(href)` 处理链接 |
+| `hasNextPage()` | 返回 boolean，判断是否有下一页 |
+| `getCurrentPageNumber()` | 返回当前页码数字 |
+| `navigateToPage(pageNumber)` | 使用 `fetchPageContent` 获取 HTML，`updatePageContent` 更新 DOM |
+
+### Parser 模板
+
+```javascript
+// parsers/newsite-parser.js
+class NewsiteParser extends BaseParser {
+  constructor() {
+    super('https://www.newsite.com');
+  }
+
+  extractCurrentPageURLs() {
+    const urls = [];
+    const albumLinks = document.querySelectorAll('你的相册链接选择器');
+    albumLinks.forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && href.includes('/album/')) {  // 按实际路径过滤
+        const normalizedURL = this.normalizeURL(href);
+        if (normalizedURL) urls.push(normalizedURL);
+      }
+    });
+    console.log(`第${this.getCurrentPageNumber()}页找到 ${urls.length} 个相册链接`);
+    return urls;
+  }
+
+  hasNextPage() {
+    const nextLink = document.querySelector('下一页链接选择器');
+    return nextLink && !nextLink.classList.contains('disabled');
+  }
+
+  getCurrentPageNumber() {
+    const activePage = document.querySelector('当前页码选择器');
+    return activePage ? parseInt(activePage.textContent) || 1 : 1;
+  }
+
+  async navigateToPage(pageNumber) {
+    const newURL = `${this.baseURL}/path?page=${pageNumber}`;  // 按实际URL规则
+    const html = await this.fetchPageContent(newURL);
+    this.updatePageContent(html, [
+      { selector: '.相册列表容器', updateContent: (cur, newEl) => { cur.innerHTML = newEl.innerHTML; } },
+      { selector: '.分页区域', updateContent: (cur, newEl) => { cur.innerHTML = newEl.innerHTML; } }
+    ], newURL);
+  }
+
+  async waitForPageLoad() {
+    return new Promise(resolve => setTimeout(resolve, 1000));
+  }
+}
+```
+
+### 选择器规范
+
+- 优先使用具体选择器：`.albums-list .card a`，避免 `.link`、`a` 等过于通用
+- 使用备用选择器策略：主选择器失败时尝试备用
+- 在控制台验证：`document.querySelectorAll('选择器').length`
+
+## 三、演员信息提取器 (ActorExtractor)
+
+### 返回结构
+
+```javascript
+{
+  name: string,
+  image: string,      // 使用 convertImageToBase64(img) 转 base64，失败则用 img.src
+  info: object,       // 如 { height, measurements, birthday, hometown, ... }
+  description: string,
+  url: window.location.href
+}
+```
+
+### ActorExtractor 模板
+
+```javascript
+// extractors/newsite-actor-extractor.js
+class NewsiteActorExtractor {
+  async extractActorInfo() {
+    try {
+      const container = document.querySelector('演员信息容器选择器');
+      if (!container) return null;
+
+      let actorName = container.querySelector('h1, .actor-name')?.textContent?.trim() || '';
+      let base64Image = '';
+      const img = container.querySelector('img');
+      if (img && img.src) {
+        base64Image = await convertImageToBase64(img);
+        if (!base64Image) base64Image = img.src;
+      }
+
+      const info = {};
+      container.querySelectorAll('dt').forEach(dt => {
+        const dd = dt.nextElementSibling;
+        if (dd) {
+          const label = dt.textContent.trim();
+          const value = dd.textContent.trim();
+          // 映射到标准字段：birthday, height, measurements, hometown, profession 等
+          if (label === '生日') info.birthday = value;
+          else if (label === '身高') info.height = value;
+          else if (label === '三围') info.measurements = value;
+          // 其他标签按需添加
+        }
+      });
+
+      return {
+        name: actorName,
+        image: base64Image,
+        info: info,
+        description: container.querySelector('.description')?.textContent?.trim() || '',
+        url: window.location.href
+      };
+    } catch (error) {
+      console.error('提取失败:', error);
+      return null;
+    }
+  }
+}
+```
+
+## 四、注册步骤（必须全部完成）
+
+### 1. manifest.json
+
+```json
+"content_scripts": [{
+  "matches": ["https://www.newsite.com/*"],
+  "js": [
+    "parsers/newsite-parser.js",
+    "extractors/newsite-actor-extractor.js",
+    ...
+  ]
+}],
+"host_permissions": [
+  "https://www.newsite.com/*",
+  "https://cdn.newsite.com/*"
+]
+```
+
+- `matches`：添加新网站 URL 模式
+- `js`：在 `parsers/base-parser.js` 之后、`core/album-url-extractor.js` 之前插入 parser；在 extractors 之后插入 extractor
+- `host_permissions`：添加主站和 CDN 域名
+
+### 2. core/album-url-extractor.js
+
+```javascript
+this.parsers = {
+  'v2ph.com': new V2PHParser(),
+  'junmeitu.com': new JunMeituParser(),
+  'meitulu.me': new MeituluParser(),
+  'newsite.com': new NewsiteParser()   // 添加
+};
+
+// detectSite() 中
+} else if (hostname.includes('newsite.com')) {
+  this.currentParser = this.parsers['newsite.com'];
+}
+```
+
+### 3. core/actor-info-extractor.js
+
+```javascript
+this.extractors = {
+  v2ph: new V2PHActorExtractor(),
+  junmeitu: new JunMeituActorExtractor(),
+  meitulu: new MeituluActorExtractor(),
+  newsite: new NewsiteActorExtractor()   // 添加
+};
+
+// extractActorInfo() 中
+} else if (currentUrl.includes('newsite.com/actor/')) {
+  return await this.extractors.newsite.extractActorInfo();
+}
+```
+
+### 4. ui/actor-button-manager.js
+
+```javascript
+isActorPage() {
+  return url.includes('/actor/') || url.includes('/model/') || url.includes('newsite.com/actor/');
+}
+```
+
+## 五、常见模式与坑点
+
+### 分页类型
+
+- **Query 参数**（V2PH）：`?page=2`，用 `URLSearchParams` 构建
+- **路径后缀**（俊美图）：`/model/xxx-2.html`
+- **index 文件**（美图录）：`/t/xxx/index_2.html`
+
+### 相对路径处理
+
+`navigateToPage` 中若 href 为相对路径（如 `index_2.html`），需拼接当前目录：
+
+```javascript
+const currentDir = pathname.substring(0, pathname.lastIndexOf('/') + 1);
+normalizedHref = currentDir + href;
+```
+
+### 跨域图片
+
+图片在 CDN 域名时，必须在 `host_permissions` 中添加该域名，否则 `convertImageToBase64` 可能失败。
+
+### 防反爬
+
+部分站点需 `Referer` 或 `User-Agent`，可参考 [meitulu-parser.js](chrome-extension/parsers/meitulu-parser.js) 的 `fetchPageContentWithRetry`。
+
+## 六、验证清单
+
+- [ ] 相册列表页点击「相册URL获取器」能正确翻页并提取 URL
+- [ ] 演员页显示演员信息按钮，点击能提取并下载 Markdown
+- [ ] 控制台无报错，选择器能稳定匹配
+- [ ] manifest 中 parser 和 extractor 脚本顺序正确（parser 在 extractor 之前，都在 core 之前）

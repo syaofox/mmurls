@@ -16,6 +16,7 @@
     "https://www.junmeitu.com/*",
     "https://i.wujituku.com/*",
     "https://meitulu.me/*",
+    "https://xx.knit.bid/*",
     "http://10.10.10.2:9102/*"
   ],
   "content_scripts": [
@@ -23,7 +24,8 @@
       "matches": [
         "https://www.v2ph.com/*",
         "https://www.junmeitu.com/*",
-        "https://meitulu.me/*"
+        "https://meitulu.me/*",
+        "https://xx.knit.bid/*"
       ],
       "js": [
         "utils/image-processor.js",
@@ -38,6 +40,7 @@
         "parsers/meitulu-parser.js",
         "parsers/v2ph-parser.js",
         "parsers/junmeitu-parser.js",
+        "parsers/knit-bid-parser.js",
         "extractors/v2ph-actor-extractor.js",
         "extractors/junmeitu-actor-extractor.js",
         "extractors/meitulu-actor-extractor.js",
