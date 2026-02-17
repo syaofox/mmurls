@@ -128,9 +128,8 @@ class MeituluParser extends BaseParser {
   }
 
   async waitForPageLoad() {
-    return new Promise(resolve => {
-      setTimeout(resolve, 1200); // 美图录等待1.2秒
-    });
+    const delay = 1000 + Math.floor(Math.random() * 1000); // 1000-2000ms 随机
+    return new Promise(resolve => setTimeout(resolve, delay));
   }
 
   // 带 Referer 和重试的 fetch，减少 404 等间歇性错误

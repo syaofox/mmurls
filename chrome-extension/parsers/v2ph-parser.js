@@ -102,8 +102,7 @@ class V2PHParser extends BaseParser {
   }
 
   async waitForPageLoad() {
-    return new Promise(resolve => {
-      setTimeout(resolve, 1000); // V2PH等待1秒
-    });
+    const delay = 800 + Math.floor(Math.random() * 1200); // 800-2000ms 随机
+    return new Promise(resolve => setTimeout(resolve, delay));
   }
 }

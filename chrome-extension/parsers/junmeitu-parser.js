@@ -113,8 +113,7 @@ class JunMeituParser extends BaseParser {
   }
 
   async waitForPageLoad() {
-    return new Promise(resolve => {
-      setTimeout(resolve, 1500); // 俊美图等待1.5秒
-    });
+    const delay = 1200 + Math.floor(Math.random() * 1200); // 1200-2400ms 随机
+    return new Promise(resolve => setTimeout(resolve, delay));
   }
 }

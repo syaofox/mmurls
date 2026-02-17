@@ -15,6 +15,13 @@ class ImageProcessor {
             return '';
         }
 
+        // 优先尝试直接使用页面已加载的图片（零网络请求）
+        const directResult = await this.tryDirectCanvasFromExistingImg(img);
+        if (directResult) {
+            console.log('✅ 使用页面已加载图片，零请求完成');
+            return directResult;
+        }
+
         // 检测网站类型并选择对应的方法
         const siteType = this.detectSiteType();
         console.log(`🌐 检测到网站类型: ${siteType}`);
@@ -109,6 +116,26 @@ class ImageProcessor {
                img.naturalHeight > 0;
     }
 
+    // 尝试直接使用页面已加载的img元素绘制到canvas（零网络请求）
+    // 若图片跨域且未带CORS，会触发tainted canvas，返回null后走fallback
+    tryDirectCanvasFromExistingImg(img) {
+        return new Promise((resolve) => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                ctx.drawImage(img, 0, 0);
+                const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(dataURL);
+            } catch (e) {
+                // tainted canvas 或其它错误，返回null走fallback
+                console.log('🔄 直接绘制失败，使用fallback:', e.message);
+                resolve(null);
+            }
+        });
+    }
+
     // CrossOrigin方法 (V2PH专用方法)
     async crossOriginMethod(imageUrl) {
         return new Promise((resolve, reject) => {
@@ -135,10 +162,8 @@ class ImageProcessor {
                 reject(new Error('图片加载失败'));
             };
             
-            // 添加缓存破坏参数
-            const url = new URL(imageUrl);
-            url.searchParams.set('_cb', Date.now().toString());
-            img.src = url.toString();
+            // 直接使用原始URL，允许浏览器从缓存加载
+            img.src = imageUrl;
         });
     }
 

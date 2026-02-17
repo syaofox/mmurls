@@ -68,9 +68,9 @@ class BaseParser {
   }
 
   async waitForPageLoad() {
-    return new Promise(resolve => {
-      setTimeout(resolve, 1000); // 默认等待1秒
-    });
+    // 随机延迟 800-2000ms，模拟真人浏览节奏
+    const delay = 800 + Math.floor(Math.random() * 1200);
+    return new Promise(resolve => setTimeout(resolve, delay));
   }
 
   // 通用的URL处理逻辑
@@ -86,17 +86,19 @@ class BaseParser {
     return href.startsWith('http') ? href : this.baseURL + href;
   }
 
-  // 通用的fetch导航逻辑
+  // 通用的fetch导航逻辑 - 允许缓存，添加Referer模拟真人浏览
   async fetchPageContent(url, headers = {}) {
     const defaultHeaders = {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
+      'Referer': this.baseURL + '/',
       ...headers
     };
 
-    const response = await fetch(url, { headers: defaultHeaders });
+    const response = await fetch(url, {
+      headers: defaultHeaders,
+      cache: 'default'
+    });
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

@@ -122,13 +122,19 @@ async function convertImageToBase64(imageUrl) {
     console.log('🖼️ Background: 开始转换图片:', imageUrl);
     
     const headers = { 'Accept': 'image/*' };
-    if (imageUrl.includes('meitulu.me')) {
+    // 根据图片域名设置Referer，模拟真人浏览
+    if (imageUrl.includes('v2ph.com') || imageUrl.includes('cdn.v2ph.com')) {
+      headers['Referer'] = 'https://www.v2ph.com/';
+    } else if (imageUrl.includes('junmeitu.com') || imageUrl.includes('i.wujituku.com')) {
+      headers['Referer'] = 'https://www.junmeitu.com/';
+    } else if (imageUrl.includes('meitulu.me')) {
       headers['Referer'] = 'https://meitulu.me/';
     }
     
     const response = await fetch(imageUrl, {
       method: 'GET',
-      headers
+      headers,
+      cache: 'default'
     });
     
     if (!response.ok) {

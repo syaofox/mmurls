@@ -149,9 +149,8 @@ class KnitBidParser extends BaseParser {
   }
 
   async waitForPageLoad() {
-    const delay = this.isSearchPage() ? 1500 : 1000;
-    return new Promise(resolve => {
-      setTimeout(resolve, delay);
-    });
+    const base = this.isSearchPage() ? 1200 : 800;
+    const delay = base + Math.floor(Math.random() * 1000); // 随机偏移
+    return new Promise(resolve => setTimeout(resolve, delay));
   }
 }
